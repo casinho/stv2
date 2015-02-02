@@ -1,0 +1,412 @@
+<?php
+class Saison extends CActiveRecord {
+
+    public static function model($className = __CLASS__) {
+        return parent::model($className);
+    }
+
+    public function tableName() {
+        return 'saison';
+    }
+
+	/**
+	 * @return array validation rules for model attributes.
+	 */
+	public function rules()
+	{
+		// NOTE: you should only define rules for those attributes that
+		// will receive user inputs.
+		return array(
+			array('saison, jahrAnfang, jahrEnde, geburtstag, tm_schiedsrichter_id', 'required'),
+			array('saison_id_alt, jahrAnfang, jahrEnde, saisoncol, anzahlSpieltage, wettbewerb_id, saison_anzeige_flag', 'numerical', 'integerOnly'=>true),
+			array('saison, anzeige_saison', 'length', 'max'=>100),
+			// The following rule is used by search().
+			// Please remove those attributes that should not be searched.
+			array('saison_id, saison, jahrAnfang, jahrEnde, anzahlSpieltage, wettbewerb_id', 'safe', 'on'=>'search'),
+		);
+	}
+
+    public function relations() {
+        return array(
+                'spiel' => array(
+                        self::HAS_MANY,
+                        'Spiel',
+                        'saison_id'
+                )
+        );
+    }
+
+    public function search() {
+        // Warning: Please modify the following code to remove attributes that
+        // should not be searched.
+        $criteria = new CDbCriteria();
+        
+        $criteria->compare('saison', $this->saison, true);
+        $criteria->compare('jahrAnfang', $this->jahrAnfang, true);
+        $criteria->compare('jahrEnde', $this->jahrEnde, true);
+        $criteria->compare('anzahlSpieltage', $this->anzahlSpieltage);
+        $criteria->compare('wettbewerb_id', $this->wettbewerb_id);
+        
+        return new CActiveDataProvider($this, array(
+                'criteria' => $criteria
+        ));
+    }
+
+    public function getAktuelleSaisonId($wettbewerbId) {
+        $saisonId = Yii::app()->request->getParam('saisonId');
+        if(isset($saisonId)) {
+        	return $saisonId;
+        } else {
+	        $jahr = date('Y');
+	        $feld = date('n') >= 7 ? 'jahrAnfang' : 'jahrEnde';
+	        $saison = $this->find(array(
+	                'select' => 'saison_id',
+	                'condition' => $feld . ' = :jahr AND wettbewerb_id = :wettbewerb_id',
+	                'params' => array(
+	                        ':jahr' => $jahr,
+	                        ':wettbewerb_id' => $wettbewerbId
+	                )
+	        ));
+	        return (int) $saison->saison_id;
+    	}
+    }
+    
+    
+    public static function getAlleSaisons() {
+        $saisons = self::model()->findAll(array(
+                'select' => 'saison_id,saison,anzeige_saison',
+                'condition' => 'saison_anzeige_flag = 1',
+                'order' => 'jahrAnfang DESC',
+        ));
+        return $saisons;
+    }
+    
+    public static function getAnzahlSpieltageBySaisonId($saisonId) {
+    	$criteria = new CDbCriteria();
+    	$criteria->select = 'anzahlSpieltage';
+    	return self::model()->findByPK($saisonId, $criteria);
+    }
+
+    public function getWahreTabelleEinfachBySpieltag($spieltag = 0) {
+        $wahreTabelle = Yii::app()->db->createCommand()
+            ->select('v.verein_id,
+                    SUM(1) AS spiele,
+                    SUM(IF(IF(s.verein_id_h=v.verein_id,s.tore_wt_h, s.tore_wt_g) > IF(s.verein_id_h=v.verein_id,s.tore_wt_g, s.tore_wt_h), 3,IF(IF(s.verein_id_h=v.verein_id,s.tore_wt_h, s.tore_wt_g) < IF(s.verein_id_h=v.verein_id,s.tore_wt_g, s.tore_wt_h), 0, 1))) AS punkte,
+                    SUM(IF(s.verein_id_h=v.verein_id,s.tore_wt_h, s.tore_wt_g)) AS tore_plus,
+                    SUM(IF(s.verein_id_h=v.verein_id,s.tore_wt_g, s.tore_wt_h)) AS tore_minus,
+                    SUM(IF(IF(s.verein_id_h = v.verein_id,s.tore_h, s.tore_g) > IF(s.verein_id_h = v.verein_id,s.tore_g, s.tore_h), 1,0)) AS s,
+                    SUM(IF(IF(s.verein_id_h = v.verein_id,s.tore_h, s.tore_g) = IF(s.verein_id_h = v.verein_id,s.tore_g, s.tore_h), 1,0)) AS u,
+                   	SUM(IF(IF(s.verein_id_h = v.verein_id,s.tore_h, s.tore_g) < IF(s.verein_id_h = v.verein_id,s.tore_g, s.tore_h), 1,0)) AS n,
+                    SUM(IF(s.verein_id_h=v.verein_id,s.tore_wt_h, s.tore_wt_g)) - SUM(IF(s.verein_id_h=v.verein_id,s.tore_wt_g, s.tore_wt_h)) AS tore_diff')
+            ->from('verein2saison v')
+            ->leftJoin('spiel s', 's.saison_id=v.saison_id AND (s.spieltag <= :spieltag OR :spieltag = 0) AND s.ergebnis_eingetragen_flag = 1 AND s.ergebnis_korrigiert_flag = 1 AND (s.verein_id_h=v.verein_id OR s.verein_id_g=v.verein_id)', array(':spieltag' => $spieltag))
+            ->where('v.saison_id = :saison_id', array(':saison_id' => $this->saison_id))
+            ->group('v.verein_id')
+            ->order('punkte DESC, tore_diff DESC, tore_plus DESC')
+            ->queryAll();
+        return $wahreTabelle;
+    }
+
+    public function getOffizielleTabelleEinfachBySpieltag($spieltag = 0) {
+        $offizielleTabelle = Yii::app()->db->createCommand()
+            ->select('v.verein_id,
+                    SUM(1) AS spiele,
+                    SUM(IF(IF(s.verein_id_h=v.verein_id,s.tore_h, s.tore_g) > IF(s.verein_id_h=v.verein_id,s.tore_g, s.tore_h), 3,IF(IF(s.verein_id_h=v.verein_id,s.tore_h, s.tore_g) < IF(s.verein_id_h=v.verein_id,s.tore_g, s.tore_h), 0, 1))) AS punkte,
+                    SUM(IF(IF(s.verein_id_h = v.verein_id,s.tore_h, s.tore_g) > IF(s.verein_id_h = v.verein_id,s.tore_g, s.tore_h), 1,0)) AS s,
+                    SUM(IF(IF(s.verein_id_h = v.verein_id,s.tore_h, s.tore_g) = IF(s.verein_id_h = v.verein_id,s.tore_g, s.tore_h), 1,0)) AS u,
+                   	SUM(IF(IF(s.verein_id_h = v.verein_id,s.tore_h, s.tore_g) < IF(s.verein_id_h = v.verein_id,s.tore_g, s.tore_h), 1,0)) AS n,
+                   	SUM(IF(s.verein_id_h=v.verein_id,s.tore_h, s.tore_g)) AS tore_plus,
+                    SUM(IF(s.verein_id_h=v.verein_id,s.tore_g, s.tore_h)) AS tore_minus,
+                    SUM(IF(s.verein_id_h=v.verein_id,s.tore_h, s.tore_g)) - SUM(IF(s.verein_id_h=v.verein_id,s.tore_g, s.tore_h)) AS tore_diff')
+            ->from('verein2saison v')
+            ->leftJoin('spiel s', 's.saison_id=v.saison_id AND (s.spieltag <= :spieltag OR :spieltag = 0) AND s.ergebnis_eingetragen_flag = 1 AND (s.verein_id_h=v.verein_id OR s.verein_id_g=v.verein_id)', array(':spieltag' => $spieltag))
+            ->where('v.saison_id = :saison_id', array(':saison_id' => $this->saison_id))
+            ->group('v.verein_id')
+            ->order('punkte DESC, tore_diff DESC, tore_plus DESC')
+            ->queryAll();
+        return $offizielleTabelle;
+    }
+    
+    public function getTabelleForm($spieltag = 0) {
+        if($spieltag > 5) {
+        	$spieltag_von = $spieltag-5;
+        } else {
+        	$spieltag_von = 0;
+        }
+        $formTabelle = Yii::app()->db->createCommand()
+            ->select('v.verein_id,
+                    SUM(1) AS spiele,
+                    SUM(IF(IF(s.verein_id_h=v.verein_id,s.tore_h, s.tore_g) > IF(s.verein_id_h=v.verein_id,s.tore_g, s.tore_h), 3,IF(IF(s.verein_id_h=v.verein_id,s.tore_h, s.tore_g) < IF(s.verein_id_h=v.verein_id,s.tore_g, s.tore_h), 0, 1))) AS punkte,
+                    SUM(IF(IF(s.verein_id_h = v.verein_id,s.tore_h, s.tore_g) > IF(s.verein_id_h = v.verein_id,s.tore_g, s.tore_h), 1,0)) AS s,
+                    SUM(IF(IF(s.verein_id_h = v.verein_id,s.tore_h, s.tore_g) = IF(s.verein_id_h = v.verein_id,s.tore_g, s.tore_h), 1,0)) AS u,
+                   	SUM(IF(IF(s.verein_id_h = v.verein_id,s.tore_h, s.tore_g) < IF(s.verein_id_h = v.verein_id,s.tore_g, s.tore_h), 1,0)) AS n,
+                    SUM(IF(s.verein_id_h=v.verein_id,s.tore_h, s.tore_g)) AS tore_plus,
+                    SUM(IF(s.verein_id_h=v.verein_id,s.tore_g, s.tore_h)) AS tore_minus,
+                    SUM(IF(s.verein_id_h=v.verein_id,s.tore_h, s.tore_g)) - SUM(IF(s.verein_id_h=v.verein_id,s.tore_g, s.tore_h)) AS tore_diff')
+            ->from('verein2saison v')
+            ->leftJoin('spiel s', 's.saison_id=v.saison_id AND s.spieltag <= :spieltag AND s.spieltag > :minimum AND s.ergebnis_eingetragen_flag = 1 AND (s.verein_id_h=v.verein_id OR s.verein_id_g=v.verein_id)', array(':spieltag' => $spieltag, ':minimum' => $spieltag_von))
+            ->where('v.saison_id = :saison_id', array(':saison_id' => $this->saison_id))
+            ->group('v.verein_id')
+            ->order('punkte DESC, tore_diff DESC, tore_plus DESC')
+            ->queryAll();
+        return $formTabelle;
+    }
+    
+    
+    public function getTabelleFormEinEintrag($saisonId,$spieltag = 0) {
+        if($spieltag > 5) {
+        	$spieltag_von = $spieltag-5;
+        } else {
+        	$spieltag_von = 0;
+        }
+        $formTabelle = Yii::app()->db->createCommand()
+            ->select('v.verein_id,
+                    SUM(1) AS spiele,
+                    SUM(IF(IF(s.verein_id_h=v.verein_id,s.tore_h, s.tore_g) > IF(s.verein_id_h=v.verein_id,s.tore_g, s.tore_h), 3,IF(IF(s.verein_id_h=v.verein_id,s.tore_h, s.tore_g) < IF(s.verein_id_h=v.verein_id,s.tore_g, s.tore_h), 0, 1))) AS punkte,
+                    SUM(IF(IF(s.verein_id_h = v.verein_id,s.tore_h, s.tore_g) > IF(s.verein_id_h = v.verein_id,s.tore_g, s.tore_h), 1,0)) AS s,
+                    SUM(IF(IF(s.verein_id_h = v.verein_id,s.tore_h, s.tore_g) = IF(s.verein_id_h = v.verein_id,s.tore_g, s.tore_h), 1,0)) AS u,
+                   	SUM(IF(IF(s.verein_id_h = v.verein_id,s.tore_h, s.tore_g) < IF(s.verein_id_h = v.verein_id,s.tore_g, s.tore_h), 1,0)) AS n,
+                    SUM(IF(s.verein_id_h=v.verein_id,s.tore_h, s.tore_g)) AS tore_plus,
+                    SUM(IF(s.verein_id_h=v.verein_id,s.tore_g, s.tore_h)) AS tore_minus,
+                    SUM(IF(s.verein_id_h=v.verein_id,s.tore_h, s.tore_g)) - SUM(IF(s.verein_id_h=v.verein_id,s.tore_g, s.tore_h)) AS tore_diff')
+            ->from('verein2saison v')
+            ->leftJoin('spiel s', 's.saison_id=v.saison_id AND s.spieltag <= :spieltag AND s.spieltag > :minimum AND s.ergebnis_eingetragen_flag = 1 AND (s.verein_id_h=v.verein_id OR s.verein_id_g=v.verein_id)', array(':spieltag' => $spieltag, ':minimum' => $spieltag_von))
+            ->where('v.saison_id = :saison_id', array(':saison_id' => $saisonId))
+            ->group('v.verein_id')
+            ->order('punkte DESC, tore_diff DESC, tore_plus DESC')
+            ->queryRow();
+        return $formTabelle;
+    }
+    
+    
+    public function getHeimTabelleBySpieltag($spieltag = 0) {
+        $heimTabelle = Yii::app()->db->createCommand()
+            ->select('v.verein_id,
+                    SUM(1) AS spiele,
+                    SUM(IF(s.tore_h > s.tore_g, 3,IF(s.tore_h < s.tore_g, 0, 1))) AS punkte,
+                    SUM(IF(s.tore_h > s.tore_g, 1,0)) AS s,
+                    SUM(IF(s.tore_h = s.tore_g, 1,0)) AS u,
+                   	SUM(IF(s.tore_h < s.tore_g, 1,0)) AS n,
+                    SUM(s.tore_h) AS tore_plus,
+                    SUM(s.tore_g) AS tore_minus,
+                    SUM(s.tore_h) - SUM(s.tore_g) AS tore_diff')
+            ->from('verein2saison v')
+            ->leftJoin('spiel s', 's.saison_id=v.saison_id AND (s.spieltag <= :spieltag OR :spieltag = 0) AND s.ergebnis_eingetragen_flag = 1 AND s.verein_id_h=v.verein_id', array(':spieltag' => $spieltag))
+            ->where('v.saison_id = :saison_id', array(':saison_id' => $this->saison_id))
+            ->group('v.verein_id')
+            ->order('punkte DESC, tore_diff DESC, tore_plus DESC')
+            ->queryAll();
+        return $heimTabelle;
+    }
+    
+    public function getHeimTabelleEinEintrag($saisonId,$order = 'punkte DESC, tore_diff DESC, tore_plus DESC') {
+        $heimTabelle = Yii::app()->db->createCommand()
+            ->select('v.verein_id,
+                    SUM(1) AS spiele,
+                    SUM(IF(s.tore_h > s.tore_g, 3,IF(s.tore_h < s.tore_g, 0, 1))) AS punkte,
+                    SUM(IF(s.tore_h > s.tore_g, 1,0)) AS s,
+                    SUM(IF(s.tore_h = s.tore_g, 1,0)) AS u,
+                   	SUM(IF(s.tore_h < s.tore_g, 1,0)) AS n,
+                    SUM(s.tore_h) AS tore_plus,
+                    SUM(s.tore_g) AS tore_minus,
+                    SUM(s.tore_h) - SUM(s.tore_g) AS tore_diff')
+            ->from('verein2saison v')
+            ->leftJoin('spiel s', 's.saison_id=v.saison_id AND s.ergebnis_eingetragen_flag = 1 AND s.verein_id_h=v.verein_id')
+            ->where('v.saison_id = :saison_id', array(':saison_id' => $saisonId))
+            ->group('v.verein_id')
+            ->order('punkte DESC, tore_diff DESC, tore_plus DESC')
+            ->order($order)
+            ->queryRow();
+        return $heimTabelle;
+    }
+    
+    public function getGastTabelleBySpieltag($spieltag = 0) {
+        $gastTabelle = Yii::app()->db->createCommand()
+            ->select('v.verein_id,
+                    SUM(1) AS spiele,
+                    SUM(IF(s.tore_g > s.tore_h, 3,IF(s.tore_g < s.tore_h, 0, 1))) AS punkte,
+                    SUM(IF(s.tore_g > s.tore_h, 1,0)) AS s,
+                    SUM(IF(s.tore_g = s.tore_h, 1,0)) AS u,
+                   	SUM(IF(s.tore_g < s.tore_h, 1,0)) AS n,
+                    SUM(s.tore_g) AS tore_plus,
+                    SUM(s.tore_h) AS tore_minus,
+                    SUM(s.tore_g) - SUM(s.tore_h) AS tore_diff')
+            ->from('verein2saison v')
+            ->leftJoin('spiel s', 's.saison_id=v.saison_id AND (s.spieltag <= :spieltag OR :spieltag = 0) AND s.ergebnis_eingetragen_flag = 1 AND s.verein_id_g=v.verein_id', array(':spieltag' => $spieltag))
+            ->where('v.saison_id = :saison_id', array(':saison_id' => $this->saison_id))
+            ->group('v.verein_id')
+            ->order('punkte DESC, tore_diff DESC, tore_plus DESC')
+            ->queryAll();
+        return $gastTabelle;
+    }
+    
+    public function getGastTabelleEinEintrag($saisonId,$order = 'punkte DESC, tore_diff DESC, tore_plus DESC') {
+        $heimTabelle = Yii::app()->db->createCommand()
+            ->select('v.verein_id,
+                    SUM(1) AS spiele,
+                    SUM(IF(s.tore_g > s.tore_h, 3,IF(s.tore_g < s.tore_h, 0, 1))) AS punkte,
+                    SUM(IF(s.tore_g > s.tore_h, 1,0)) AS s,
+                    SUM(IF(s.tore_g = s.tore_h, 1,0)) AS u,
+                   	SUM(IF(s.tore_g < s.tore_h, 1,0)) AS n,
+                    SUM(s.tore_g) AS tore_plus,
+                    SUM(s.tore_h) AS tore_minus,
+                    SUM(s.tore_g) - SUM(s.tore_h) AS tore_diff')
+            ->from('verein2saison v')
+            ->leftJoin('spiel s', 's.saison_id=v.saison_id AND s.ergebnis_eingetragen_flag = 1 AND s.verein_id_g = v.verein_id')
+            ->where('v.saison_id = :saison_id', array(':saison_id' => $saisonId))
+            ->group('v.verein_id')
+            ->order('punkte DESC, tore_diff DESC, tore_plus DESC')
+            ->order($order)
+            ->queryRow();
+        return $heimTabelle;
+    }
+    
+    public function getErsteHalbzeitTabelleBySpieltag($spieltag = 0) {
+        $ersteHalbzeitTabelle  = Yii::app()->db->createCommand()
+            ->select('v.verein_id,
+                    SUM(1) AS spiele,
+                    SUM(IF(IF(s.verein_id_h = v.verein_id,s.tore_hz_h, s.tore_hz_g) > IF(s.verein_id_h = v.verein_id,s.tore_hz_g, s.tore_hz_h), 3,IF(IF(s.verein_id_h = v.verein_id,s.tore_hz_h, s.tore_hz_g) < IF(s.verein_id_h = v.verein_id,s.tore_hz_g, s.tore_hz_h), 0, 1))) AS punkte,
+                    SUM(IF(IF(s.verein_id_h = v.verein_id,s.tore_hz_h, s.tore_hz_g) > IF(s.verein_id_h = v.verein_id,s.tore_hz_g, s.tore_hz_h), 1,0)) AS s,
+                    SUM(IF(IF(s.verein_id_h = v.verein_id,s.tore_hz_h, s.tore_hz_g) = IF(s.verein_id_h = v.verein_id,s.tore_hz_g, s.tore_hz_h), 1,0)) AS u,
+                   	SUM(IF(IF(s.verein_id_h = v.verein_id,s.tore_hz_h, s.tore_hz_g) < IF(s.verein_id_h = v.verein_id,s.tore_hz_g, s.tore_hz_h), 1,0)) AS n,
+                    SUM(IF(s.verein_id_h=v.verein_id,s.tore_hz_h, s.tore_hz_g)) AS tore_plus,
+                    SUM(IF(s.verein_id_h=v.verein_id,s.tore_hz_g, s.tore_hz_h)) AS tore_minus,
+                    SUM(IF(s.verein_id_h=v.verein_id,s.tore_hz_h, s.tore_hz_g)) - SUM(IF(s.verein_id_h=v.verein_id,s.tore_hz_g, s.tore_hz_h)) AS tore_diff')
+            ->from('verein2saison v')
+            ->leftJoin('spiel s', 's.saison_id=v.saison_id AND (s.spieltag <= :spieltag OR :spieltag = 0) AND s.ergebnis_eingetragen_flag = 1 AND (s.verein_id_h=v.verein_id OR s.verein_id_g=v.verein_id)', array(':spieltag' => $spieltag))
+            ->where('v.saison_id = :saison_id', array(':saison_id' => $this->saison_id))
+            ->group('v.verein_id')
+            ->order('punkte DESC, tore_diff DESC, tore_plus DESC')
+            ->queryAll();
+        return $ersteHalbzeitTabelle;
+    }
+    
+    public function getHalbzeitEinsTabelleEinEintrag($saisonId,$order = 'punkte DESC, tore_diff DESC, tore_plus DESC') {
+        $ersteHalbzeitTabelle = Yii::app()->db->createCommand()
+            ->select('v.verein_id,
+                    SUM(1) AS spiele,
+                    SUM(IF(IF(s.verein_id_h = v.verein_id,s.tore_hz_h, s.tore_hz_g) > IF(s.verein_id_h = v.verein_id,s.tore_hz_g, s.tore_hz_h), 3,IF(IF(s.verein_id_h = v.verein_id,s.tore_hz_h, s.tore_hz_g) < IF(s.verein_id_h = v.verein_id,s.tore_hz_g, s.tore_hz_h), 0, 1))) AS punkte,
+                    SUM(IF(IF(s.verein_id_h = v.verein_id,s.tore_hz_h, s.tore_hz_g) > IF(s.verein_id_h = v.verein_id,s.tore_hz_g, s.tore_hz_h), 1,0)) AS s,
+                    SUM(IF(IF(s.verein_id_h = v.verein_id,s.tore_hz_h, s.tore_hz_g) = IF(s.verein_id_h = v.verein_id,s.tore_hz_g, s.tore_hz_h), 1,0)) AS u,
+                   	SUM(IF(IF(s.verein_id_h = v.verein_id,s.tore_hz_h, s.tore_hz_g) < IF(s.verein_id_h = v.verein_id,s.tore_hz_g, s.tore_hz_h), 1,0)) AS n,
+                    SUM(IF(s.verein_id_h=v.verein_id,s.tore_hz_h, s.tore_hz_g)) AS tore_plus,
+                    SUM(IF(s.verein_id_h=v.verein_id,s.tore_hz_g, s.tore_hz_h)) AS tore_minus,
+                    SUM(IF(s.verein_id_h=v.verein_id,s.tore_hz_h, s.tore_hz_g)) - SUM(IF(s.verein_id_h=v.verein_id,s.tore_hz_g, s.tore_hz_h)) AS tore_diff')
+            ->from('verein2saison v')
+            ->leftJoin('spiel s', 's.saison_id=v.saison_id AND s.ergebnis_eingetragen_flag = 1 AND (s.verein_id_h=v.verein_id OR s.verein_id_g=v.verein_id)')
+            ->where('v.saison_id = :saison_id', array(':saison_id' => $saisonId))
+            ->group('v.verein_id')
+            ->order('punkte DESC, tore_diff DESC, tore_plus DESC')
+            ->order($order)
+            ->queryRow();
+        return $ersteHalbzeitTabelle;
+    }
+    
+    public function getZweiteHalbzeitTabelleBySpieltag($spieltag = 0) {
+        $zweiteHalbzeitTabelle  = Yii::app()->db->createCommand()
+            ->select('v.verein_id,
+                    SUM(1) AS spiele,
+                    SUM(IF(IF(s.verein_id_h = v.verein_id,s.tore_h-s.tore_hz_h, s.tore_g-s.tore_hz_g) > IF(s.verein_id_h = v.verein_id,s.tore_g-s.tore_hz_g, s.tore_h-s.tore_hz_h), 3,IF(IF(s.verein_id_h = v.verein_id,s.tore_h-s.tore_hz_h, s.tore_g-s.tore_hz_g) < IF(s.verein_id_h = v.verein_id,s.tore_g-s.tore_hz_g, s.tore_h-s.tore_hz_h), 0, 1))) AS punkte,
+                    SUM(IF(IF(s.verein_id_h = v.verein_id,s.tore_h-s.tore_hz_h, s.tore_g-s.tore_hz_g) > IF(s.verein_id_h = v.verein_id,s.tore_g-s.tore_hz_g, s.tore_h-s.tore_hz_h), 1,0)) AS s,
+                    SUM(IF(IF(s.verein_id_h = v.verein_id,s.tore_h-s.tore_hz_h, s.tore_g-s.tore_hz_g) = IF(s.verein_id_h = v.verein_id,s.tore_g-s.tore_hz_g, s.tore_h-s.tore_hz_h), 1,0)) AS u,
+                   	SUM(IF(IF(s.verein_id_h = v.verein_id,s.tore_h-s.tore_hz_h, s.tore_g-s.tore_hz_g) < IF(s.verein_id_h = v.verein_id,s.tore_g-s.tore_hz_g, s.tore_h-s.tore_hz_h), 1,0)) AS n,
+                    SUM(IF(s.verein_id_h = v.verein_id,s.tore_h-s.tore_hz_h, s.tore_g-s.tore_hz_g)) AS tore_plus,
+                    SUM(IF(s.verein_id_h = v.verein_id,s.tore_g-s.tore_hz_g, s.tore_h-s.tore_hz_h)) AS tore_minus,
+                    SUM(IF(s.verein_id_h = v.verein_id,s.tore_h-s.tore_hz_h, s.tore_g-s.tore_hz_g)) - SUM(IF(s.verein_id_h=v.verein_id,s.tore_g-s.tore_hz_g, s.tore_h-s.tore_hz_h)) AS tore_diff')
+            ->from('verein2saison v')
+            ->leftJoin('spiel s', 's.saison_id=v.saison_id AND (s.spieltag <= :spieltag OR :spieltag = 0) AND s.ergebnis_eingetragen_flag = 1 AND (s.verein_id_h=v.verein_id OR s.verein_id_g=v.verein_id)', array(':spieltag' => $spieltag))
+            ->where('v.saison_id = :saison_id', array(':saison_id' => $this->saison_id))
+            ->group('v.verein_id')
+            ->order('punkte DESC, tore_diff DESC, tore_plus DESC')
+            ->queryAll();
+        return $zweiteHalbzeitTabelle;
+    }
+    
+    public function getHalbzeitZweiTabelleEinEintrag($saisonId,$order = 'punkte DESC, tore_diff DESC, tore_plus DESC') {
+        $ersteHalbzeitTabelle = Yii::app()->db->createCommand()
+           ->select('v.verein_id,
+                    SUM(1) AS spiele,
+                    SUM(IF(IF(s.verein_id_h = v.verein_id,s.tore_h-s.tore_hz_h, s.tore_g-s.tore_hz_g) > IF(s.verein_id_h = v.verein_id,s.tore_g-s.tore_hz_g, s.tore_h-s.tore_hz_h), 3,IF(IF(s.verein_id_h = v.verein_id,s.tore_h-s.tore_hz_h, s.tore_g-s.tore_hz_g) < IF(s.verein_id_h = v.verein_id,s.tore_g-s.tore_hz_g, s.tore_h-s.tore_hz_h), 0, 1))) AS punkte,
+                    SUM(IF(IF(s.verein_id_h = v.verein_id,s.tore_h-s.tore_hz_h, s.tore_g-s.tore_hz_g) > IF(s.verein_id_h = v.verein_id,s.tore_g-s.tore_hz_g, s.tore_h-s.tore_hz_h), 1,0)) AS s,
+                    SUM(IF(IF(s.verein_id_h = v.verein_id,s.tore_h-s.tore_hz_h, s.tore_g-s.tore_hz_g) = IF(s.verein_id_h = v.verein_id,s.tore_g-s.tore_hz_g, s.tore_h-s.tore_hz_h), 1,0)) AS u,
+                   	SUM(IF(IF(s.verein_id_h = v.verein_id,s.tore_h-s.tore_hz_h, s.tore_g-s.tore_hz_g) < IF(s.verein_id_h = v.verein_id,s.tore_g-s.tore_hz_g, s.tore_h-s.tore_hz_h), 1,0)) AS n,
+                    SUM(IF(s.verein_id_h = v.verein_id,s.tore_h-s.tore_hz_h, s.tore_g-s.tore_hz_g)) AS tore_plus,
+                    SUM(IF(s.verein_id_h = v.verein_id,s.tore_g-s.tore_hz_g, s.tore_h-s.tore_hz_h)) AS tore_minus,
+                    SUM(IF(s.verein_id_h = v.verein_id,s.tore_h-s.tore_hz_h, s.tore_g-s.tore_hz_g)) - SUM(IF(s.verein_id_h=v.verein_id,s.tore_g-s.tore_hz_g, s.tore_h-s.tore_hz_h)) AS tore_diff')
+            ->from('verein2saison v')
+            ->leftJoin('spiel s', 's.saison_id=v.saison_id AND s.ergebnis_eingetragen_flag = 1 AND (s.verein_id_h=v.verein_id OR s.verein_id_g=v.verein_id)')
+            ->where('v.saison_id = :saison_id', array(':saison_id' => $saisonId))
+            ->group('v.verein_id')
+            ->order('punkte DESC, tore_diff DESC, tore_plus DESC')
+            ->order($order)
+            ->queryRow();
+        return $ersteHalbzeitTabelle;
+    }
+    
+    //Tabellen abgleichen, Differenzen zur jeweils anderen Tabelle eintragen
+    public function kreuzverwurstung(&$tabelle1, &$tabelle2) {
+        foreach($tabelle1 as $i1 => $platz1) {
+            foreach($tabelle2 as $i2 => $platz2) {
+                if($platz1['verein_id'] == $platz2['verein_id']) {
+                    $tabelle1[$i1]['anderer_platz'] = $i2 + 1;
+                    $tabelle2[$i2]['anderer_platz'] = $i1 + 1;
+                    $tabelle1[$i1]['andere_punkte'] = $platz2['punkte'];
+                    $tabelle2[$i2]['andere_punkte'] = $platz1['punkte'];
+                    break;
+                }
+            }
+        }
+    }
+    
+    public function getStrittigeSzenenBySpieltag($spieltag) {
+        $strittigeSzenen = Yii::app()->db->createCommand()
+            ->select('s.spiel_id,
+                    s.verein_id_h,
+                    s.verein_id_g,
+                    s.tore_h,
+                    s.tore_g,
+                    s.tore_wt_h,
+                    s.tore_wt_g,
+                    s.ergebnis_eingetragen_flag,
+                    s.ergebnis_korrigiert_flag,
+                    f.spiel_fehlentscheidung_id,
+                    f.thema_id,
+                    f.anzeige_flag,
+                    f.kategorie_id,
+                    f.tore_alt_h,
+                    f.tore_alt_g,
+                    f.tore_neu_h,
+                    f.tore_neu_g,
+                    f.daumen,
+                    f.beschreibung')
+            ->from('spiel s')
+            ->join('spiel_fehlentscheidung f', 's.spiel_id = f.spiel_id')
+            ->where('s.saison_id = :saison_id AND s.spieltag = :spieltag', array(':saison_id' => $this->saison_id, ':spieltag' => $spieltag))
+            ->order('s.sort')
+            ->queryAll();
+        foreach($strittigeSzenen as &$szene) {
+            $szene['verein_h'] = Verein::model()->findByPk($szene['verein_id_h']);
+            $szene['verein_g'] = Verein::model()->findByPk($szene['verein_id_g']);
+            $ktVotes = Yii::app()->db->createCommand()
+                ->select('SUM(IF(k.option_id = 1, 1, 0)) AS kt_daumen_hoch,
+                        SUM(IF(k.option_id = 2, 1, 0)) AS kt_daumen_runter,
+                        SUM(IF(k.option_id = 3, 1, 0)) AS kt_daumen_neutral')
+                ->from('kt2voting k')
+                ->where('k.spiel_fehlentscheidung_id = '.$szene['spiel_fehlentscheidung_id'])
+                ->queryRow();
+            $szene = array_merge($szene, $ktVotes);
+            $userVotes = Yii::app()->db->createCommand()
+                ->select('ROUND(SUM(IF(v.option_id = 1, 1, 0)) / count(*) * 100) AS user_daumen_hoch,
+                        ROUND(SUM(IF(v.option_id = 2, 1, 0)) / count(*) * 100) AS user_daumen_runter,
+                        ROUND(SUM(IF(v.option_id = 3, 1, 0)) / count(*) * 100) AS user_daumen_neutral')
+                ->from('user2voting v')
+                ->where('v.forum_id= 23 AND v.thema_id = '.$szene['thema_id'])
+                ->queryRow();
+            $szene = array_merge($szene, $userVotes);
+            $szene['kt_max'] = max($szene['kt_daumen_hoch'], $szene['kt_daumen_runter'], $szene['kt_daumen_neutral']);
+            $szene['user_max'] = max($szene['user_daumen_hoch'], $szene['user_daumen_runter'], $szene['user_daumen_neutral']);
+        }
+        return $strittigeSzenen;
+    }
+    
+}

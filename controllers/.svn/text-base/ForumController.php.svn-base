@@ -1,0 +1,858 @@
+<?php
+class ForumController extends Controller {
+	public $kategorien = array('Allgmeine Foren', 'Vereinsforen', 'Interne Foren');
+	
+	public function filters() {
+		return array(
+			'accessControl', // perform access control for CRUD operations
+		);
+	}
+
+	public function accessRules() {
+		return array(
+			array('allow',  // allow all users to perform 'index' and 'view' actions
+				'actions'=>array('index', 'view', 'thema', 'letzte_beitraege'),
+				'users'=>array('*'),
+			),
+			array('allow',
+				'actions' => array('antworten', 'zitieren', 'alarm', 'bearbeiten', 'themaErstellen', 'thema_bearbeiten'),
+				'roles' => array('authentifiziert')
+			),
+			array('deny',  // deny all users
+				'users'=>array('*'),
+			),
+		);
+	}
+	
+	private function isOpen() {
+		if(1 == 1) {
+			return false;
+		} else {
+			return true;
+		}
+	}
+	
+	public function actionIndex() {
+		$attributes['online_flag'] = 1;
+		$conditions = array('order' => 'kategorie_id ASC, reihenfolge ASC');
+
+		Forum::Model()->scenario = 'view_foren';
+		$foren = Forum::Model()->findAllByAttributes($attributes,$conditions);
+		
+		foreach($foren as $k => $v) {
+			$v->letztesThema = ForumThema::Model(null, $v->forum_id)->findByPk($v->letzte_thema_id);
+		}
+		
+		$kategorien = $this->kategorien;
+		
+		$this->render('forum',array(
+				'foren' => $foren,
+				'kategorien' => $kategorien
+			)
+		);		
+	}
+
+	public function actionLetzte_beitraege() {
+		
+		Forum::Model()->scenario = 'view_foren';
+		
+		$beitraege = ForumNeueBeitraege::holeLetzteBeitraege();
+		
+		$this->breadcrumbs = array(
+			'Community' => array('forum/'),
+			'Letzte Beiträge',
+		);		
+		
+		$this->render('letzteBeitraege',array(
+				'beitraege' => $beitraege,
+			)
+		);		
+	}	
+	
+	public function actionView() {
+		
+		
+		$forum	= Forum::Model()->findByPk(Yii::app()->request->getParam('id'));
+		
+		if(isset($_POST['delete_thema_id'])) {
+			foreach($_POST['delete_thema_id'] as $k => $v) {
+				$delete 				= ForumThema::Model(null,$forum->forum_id)->deleteByPk($v);
+				$attributes['thema_id']	= $v;
+				try {
+					$delete2 = SpielFehlentscheidung::model()->deleteAllByAttributes($attributes);
+				} catch(Exception $e) {
+					//
+				}
+				if($delete > 0) {
+					$attributes['thema_id'] = $v;
+					ForumBeitrag::Model(null,$forum->forum_id)->deleteAllByAttributes($attributes);
+					Forum::Model()->aktualisiereForum($forum->forum_id);
+					
+					$this->refresh();
+				}
+				
+			}
+		}       
+		
+		$criteria = new CDbCriteria;
+		$criteria->select = 'thema_id,titel,letzte_user_id,letzte_user_nick,letzte_beitrag_id,letzte_beitrag_zeit,anzahl_antworten,voting_flag,closed_flag';
+		
+		
+		$anzahl = ForumThema::Model(null,$forum->forum_id)->count($criteria);
+
+		$sort = new CSort();
+		$sort->defaultOrder = 't.letzte_beitrag_zeit DESC';
+
+        if($forum->forum_id != 23) {
+
+			$sort->attributes = array(
+				'letzte_antwort' => array(
+					'desc'=>'t.letzte_beitrag_zeit DESC',
+					'asc'=>'t.letzte_beitrag_zeit',		
+				),
+				'antworten' => array(
+					'asc'=>'t.anzahl_antworten',
+					'desc'=>'t.anzahl_antworten DESC',
+				),
+				'titel' => array(
+					'asc'=>'t.titel',
+					'desc'=>'t.titel DESC',
+				),
+	        
+	        );        	
+        	
+        	$sql = 'SELECT 
+        				t.thema_id AS id,t.thema_id,t.titel,t.letzte_user_id,t.letzte_user_nick,t.letzte_beitrag_id,t.letzte_beitrag_zeit,t.anzahl_antworten,t.voting_flag,t.closed_flag
+        			FROM
+        				forum_'.$forum->forum_id.'_thema AS t';
+       
+        } else {
+			$sort->attributes = array(
+				'letzte_antwort' => array(
+					'desc'=>'t.letzte_beitrag_zeit DESC',
+					'asc'=>'t.letzte_beitrag_zeit',		
+				),
+				'antworten' => array(
+					'asc'=>'t.anzahl_antworten',
+					'desc'=>'t.anzahl_antworten DESC',
+				),
+				'titel' => array(
+					'asc'=>'t.titel',
+					'desc'=>'t.titel DESC',
+				),
+				'spieltag' => array(
+					'desc'=>'s.saison_id = "'.Saison::model()->getAktuelleSaisonId(Yii::app()->params['wettbewerbId']).'", s.spieltag DESC',
+					'asc'=>'s.saison_id = "'.Saison::model()->getAktuelleSaisonId(Yii::app()->params['wettbewerbId']).'", s.spieltag',		
+				),         
+        	);        	
+				
+       	
+        	
+        	$sql = 'SELECT 
+        				t.thema_id AS id,t.thema_id,t.titel,t.letzte_user_id,t.letzte_user_nick,t.letzte_beitrag_id,t.letzte_beitrag_zeit,t.anzahl_antworten,t.voting_flag,t.closed_flag,
+        				s.tore_h,s.tore_g,s.tore_wt_h,s.tore_wt_g,s.ergebnis_eingetragen_flag,s.ergebnis_korrigiert_flag,s.verein_id_h,s.verein_id_g,s.spieltag
+        			FROM
+        				forum_'.$forum->forum_id.'_thema AS t
+        			LEFT JOIN 
+        				spiel AS s ON s.spiel_id = t.zuordnung_id
+        			GROUP BY t.thema_id';        	
+        }
+        		
+        
+		$forumDataProvider = new CSqlDataProvider($sql,array(
+									'totalItemCount' => $anzahl,
+ 									//'sort'=>array( 'attributes'=>array( 'titel', 'letzte_antwort', 'letzte_beitrag_zeit' )),
+ 									'sort' => $sort,
+									'pagination' => array(
+										'pageSize' => 20
+									)				
+		));
+		
+		$this->breadcrumbs = array(
+			'Community' => array('forum/'),
+			$forum->forum_name
+		);
+		
+		$this->render('forumAnsicht',array(
+				'forum' => $forum,
+				'themen'=> $forumDataProvider
+			)
+		);
+	}
+	
+	public function actionThema() {
+		$forum	= Forum::Model()->findByPk(Yii::app()->request->getParam('board_id'));
+		$thema	= ForumThema::Model(null,$forum->forum_id)->findByPk(Yii::app()->request->getParam('thema_id'));
+
+		$view	= 'thema';
+		
+		$ajaxMsg = 'STATIC - STATIC - STATIC';
+		
+	   	if(Yii::app()->request->isAjaxRequest){
+			
+	   		//print_r($_POST);
+	   		
+	   		$ajaxMsg = 'Content updated in AJAX'; 
+			$this->renderPartial('_ajaxContent', $ajaxMsg, false, true);        	
+        } else {
+			//$this->renderPartial('_ajaxContent', $ajaxMsg, false, true);        	
+        }
+        
+		$vereinsforen 	= '';
+		$spielthemen 	= '';
+		
+		$saisonId 			= '';
+		$spieltagsAnzeige	= '';
+		$aktuelleSpiele		= '';
+		$spiel				= '';
+		
+		if($thema->zuordnung_id > 0 && $thema->zuordnung == 'spiel' && $forum->forum_id == 23) {
+			
+			$view 				= 'themaSpiel';
+			$thema->spiel_id 	= $thema->zuordnung_id;
+			
+        	$saisonId 			= Saison::model()->getAktuelleSaisonId(Yii::app()->params['wettbewerbId']);
+        	$spieltagsAnzeige 	= WTFunctions::getDatenFuerSpieltagsAnzeigeBySaisonId($saisonId, false, true);
+        	$aktuelleSpiele 	= Spiel::model()->getSpieleBySaisonAndSpieltag($saisonId, $spieltagsAnzeige['gewaehlterSpieltag']);			
+			
+        	$spiel = Spiel::Model()->getSingleSpiel($thema->spiel_id);
+        	
+			$thema->spiel 						= $spiel;		
+			$thema->spiel->scorer 				= SpielScorer::Model()->getScorerSpiel($thema->spiel_id);
+			$thema->spiel->schiedsrichter 		= Schiedsrichter::Model()->findByPk($thema->spiel->schiedsrichter_id);
+			$thema->spiel->aufstellung 			= SpielAufstellung::Model()->getAufstellungSpiel($thema->spiel_id,$thema->spiel->saison_id);
+			$thema->spiel->bank 				= SpielAufstellung::Model()->getBankSpiel($thema->spiel_id,$thema->spiel->saison_id);
+			
+			$thema->user2voting					= new User2voting;
+			$thema->user2voting->abstimmung 	= User2voting::Model()->getCommunityAbstimmung($thema->thema_id);
+			$thema->user2voting->teilnehmer 	= User2voting::Model()->getCommunityAbstimmungTeilnehmer($thema->thema_id);
+			
+			$thema->spielfehlentscheidung		= SpielFehlentscheidung::model()->findByAttributes(array('thema_id' => $thema->thema_id));
+
+			if(!empty($thema->spielfehlentscheidung['spiel_fehlentscheidung_id'])) {
+				$spiel										= Spiel::model()->findByPk($thema->spielfehlentscheidung['spiel_id']);
+				$thema->spielfehlentscheidung['verein_h']= Verein::model()->findByPk($spiel['verein_id_h']);
+				$thema->spielfehlentscheidung['verein_g']= Verein::model()->findByPk($spiel['verein_id_g']);
+				$thema->spielfehlentscheidung['gesamt']		= SpielFehlentscheidung::model()->getKTVotesFehlentscheidung($thema->spielfehlentscheidung['spiel_fehlentscheidung_id']);
+				$thema->spielfehlentscheidung['team']		= SpielFehlentscheidung::model()->getTeilnehmerAbstimmungKTTeam($thema->thema_id);	
+			}
+
+			$vereinsforen = Forum::Model()->findAll('zuordnung_id=:verein_id_h OR zuordnung_id=:verein_id_g', array(':verein_id_h'=>$thema->spiel->verein_id_h,':verein_id_g'=>$thema->spiel->verein_id_g));
+			
+			$thema->setRelevanteThemen();
+			
+			$statistik_h = SpielStatistik::Model()->getStatistikSpiel($thema->spiel_id,$thema->spiel->saison_id,$thema->spiel->verein_id_h);
+			$statistik_g = SpielStatistik::Model()->getStatistikSpiel($thema->spiel_id,$thema->spiel->saison_id,$thema->spiel->verein_id_g);
+			
+			if(!empty($statistik_h) && !empty($statistik_g)) {
+				foreach($thema->spiel->labels as $k => $v) {
+					if($statistik_h[$k]==0 && $statistik_g[$k]==0) {
+						unset($thema->spiel->labels[$k]);
+					} else {
+
+						$max_width = 78;
+						
+						$prozent = 0;
+						$width_h = 0;
+						$anteile = 0;
+						$width_g = 0;
+
+						if($v['werte']=='prozentual') {
+
+								$width_h 	= ceil(($statistik_h[$k] * $max_width)/100);
+								$width_g 	= ceil(($statistik_g[$k] * $max_width)/100);
+
+						} else {
+							
+							if($statistik_h[$k] > $statistik_g[$k]) {
+								
+								$width_h 	= $max_width;
+								$prozent 	= ceil(($statistik_g[$k] * 100)/$statistik_h[$k]);
+								$width_g 	= ceil(($prozent * $width_h)/100);
+								
+							} elseif($statistik_h[$k] == $statistik_g[$k]) {
+								
+								$width_h 	= $max_width;
+								$width_g 	= $max_width;
+								
+							} else {
+								$width_g 	= $max_width;
+								$prozent 	= ceil(($statistik_h[$k] * 100)/$statistik_g[$k]);
+								$width_h	= ceil(($prozent * $width_g)/100);
+	
+							}
+
+						}	
+							
+						$thema->spiel->labels[$k]['data'] = array(
+							'data_h' 	=> $statistik_h[$k], 
+							'width_h' 	=> $width_h, 
+							'data_g' 	=> $statistik_g[$k], 
+							'width_g' 	=> $width_g
+						);
+					}
+				}
+			}
+		} else {
+			
+			if($forum->zuordnung == 'verein' && $forum->zuordnung_id > 0) {
+			
+				$saisonId 			= Saison::model()->getAktuelleSaisonId(Yii::app()->params['wettbewerbId']);
+				
+				$aktueller_spieltag = Spiel::model()->getNummerAktuellerSpieltag($saisonId);
+				$letzter_spieltag 	= Spiel::model()->getNummerLetzterSpieltag($saisonId);
+				
+				$spiel = Spiel::Model()->findAll('saison_id = :saison_id AND (spieltag=:aktueller_spieltag OR spieltag=:letzter_spieltag) AND (verein_id_h=:verein_id OR verein_id_g=:verein_id)', array('saison_id' => $saisonId, ':aktueller_spieltag' => $aktueller_spieltag,'letzter_spieltag'=> $letzter_spieltag,':verein_id'=>$forum->zuordnung_id));
+				
+				$spiele = array();
+				
+				foreach($spiel as $k => $v) {
+					$spiele[] = $v->spiel_id;
+				}
+				$spiele = implode(',',$spiele);
+
+				
+				//$spielthemen = ForumThema::Model(null,23)->findAll(', array(), array('order'=>'voting_flag DESC'));				
+				
+        		$spielthemen = ForumThema::Model(null,23)->findAll(array(
+                	'select' 	=> 'thema_id,titel,voting_flag',
+                	'condition' => 'zuordnung=:zuordnung AND zuordnung_id IN (:spiele)',
+                	'order' 	=> 'voting_flag DESC',
+                	'params' 	=> array(
+                        ':zuordnung' => 'spiel',
+                        ':spiele' => $spiele
+                	)
+                
+        		));				
+				
+			}
+			
+		}
+		
+		$this->breadcrumbs = array(
+			'Community' => array('forum/'),
+			$forum->forum_name => array($forum->getForumLink()),
+			$thema->titel
+		);		
+		
+		if(isset($_POST['delete_beitrag_id'])) {
+			$delete_counter = 0; 
+			foreach($_POST['delete_beitrag_id'] as $k => $v) {
+				if(ForumBeitrag::Model(null,$forum->forum_id)->deleteByPk($v)) {
+					$delete_counter+=1;
+				}
+			}
+			if($delete_counter > 0) {
+				ForumThema::Model(null,$forum->forum_id)->aktualisiereLetztesThema($thema->thema_id);
+			}
+			
+		}		
+
+		$criteria = new CDbCriteria();
+       	$criteria->condition = 'thema_id = :thema_id';
+       	$criteria->order = 'erstelltzeit DESC';
+       	$criteria->params = array (':thema_id'=>$thema->thema_id);
+       
+        $item_count = ForumBeitrag::model(null,$forum->forum_id)->count($criteria);
+               
+        $pages = new CPagination($item_count);
+        $pages->setPageSize(Yii::app()->params['page_size']);
+        $pages->applyLimit($criteria);
+        
+		$sql = "SELECT 
+					b.beitrag_id,b.nachricht,b.titel,b.user_id,b.user_nick,b.thema_id,b.erstelltzeit,b.bearbeitetzeit,b.bearbeitet_user_id,b.beitrag_id,
+					u.beitraege,u.anzahl_beitraege,u.sterne,u.avatar,u.avatar_kt,u.signatur,u.datum_registriert,u.sterne,u.kompetenz_flag,u.chef_flag,u.kontroll_flag,u.verein_id,
+					e.user_nick AS bearbeitet_user_nick,
+					v.vereinsname
+				FROM 
+					forum_".$forum->forum_id."_beitrag AS b
+				LEFT JOIN 
+					user AS u ON u.user_id = b.user_id
+				LEFT JOIN 
+					user AS e ON e.user_id = b.bearbeitet_user_id
+				LEFT JOIN
+					verein AS v ON v.verein_id = u.verein_id					
+				WHERE
+					thema_id = ".$thema->thema_id."
+				ORDER BY
+					erstelltzeit ASC";
+		
+  		$count_query = "SELECT COUNT(*) FROM forum_".$forum->forum_id."_beitrag WHERE thema_id = ".$thema->thema_id."";
+
+  		$item_count = Yii::app()->db->createCommand($count_query)->queryScalar();
+
+  		$dataProvider = new CSqlDataProvider($sql, array(
+    						'keyField'		=> 'beitrag_id',
+    						'totalItemCount'=> $item_count,
+    						'pagination'=>array(
+      							'pageSize'=>Yii::app()->session['page_size'],
+    						),
+  		));		
+  		
+		
+  		
+  		$attributes['user_id'] 	= Yii::app()->user->id; 
+		$attributes['thema_id'] = $thema->thema_id;
+		$attributes['forum_id'] = $forum->forum_id;
+
+		if(isset($_POST['communityAbstimmen'])) {
+			$qryItem = User2voting::model()->findByAttributes($attributes);
+			
+			if(!is_object($qryItem)) {
+				$qryItem = new User2voting();
+			}
+			$qryItem->option_id 	= $_POST['User2voting']['option_id'];
+			$qryItem->datumzeit		= date('Y-m-d H:i:s');;
+			$qryItem->attributes	= $attributes;
+
+			if($qryItem->validate()) {
+				if($qryItem->save()) {
+					Yii::app()->user->setFlash('stimme_gespeichert','Deine Stimme wurde erfolgreich gespeichert.');
+					$thema->user2voting->abstimmung 	= User2voting::Model()->getCommunityAbstimmung($thema->thema_id);
+					$thema->user2voting->teilnehmer 	= User2voting::Model()->getCommunityAbstimmungTeilnehmer($thema->thema_id);
+					$this->refresh();
+				} else {
+					Yii::app()->user->setFlash('stimme_nicht_gespeichert','Deine Stimme konnte nicht gespeichert werden.');
+				}
+			}else {
+				Yii::app()->user->setFlash('stimme_nicht_gespeichert','Deine Stimme konnte nicht gespeichert werden.');
+			}
+		}
+	
+		$abstimmungUser = User2voting::model()->findByAttributes($attributes);
+  		if(!is_object($abstimmungUser)) {
+  			$abstimmungUser 	= new User2voting();
+		}
+		
+		$this->render($view,array(
+				'forum' 			=> $forum,
+				'thema' 			=> $thema,
+				//'beitraege'		=> ForumBeitrag::Model(null,$forum->forum_id)->findAll($criteria), // must be the same as $item_count
+				'beitraege'			=> $dataProvider,
+                'item_count'		=> $item_count,
+                'page_size'			=> Yii::app()->params['page_size'],
+                'items_count'		=> $item_count,
+                'pages'				=> $pages,
+				'abstimmungUser'	=> $abstimmungUser,
+				'vereinsforen'		=> $vereinsforen,
+				'spielthemen'		=> $spielthemen,
+				'saisonId'			=> $saisonId,
+				'spieltagsAnzeige'	=> $spieltagsAnzeige,
+				'aktuelleSpiele'	=> $aktuelleSpiele,
+				'spiel'				=> $spiel,
+				'ajaxMsg'			=> $ajaxMsg,
+			)
+		);  		
+  		
+	}
+		
+	public function actionThemaErstellen() {
+		$forum		= Forum::Model()->findByPk(Yii::app()->request->getParam('board_id'));
+       	
+		$thema		= new ForumThema('insert',$forum->forum_id);
+		$beitrag	= new ForumBeitrag('insert',$forum->forum_id);
+
+		$this->breadcrumbs = array(
+			'Community' => array('forum/'),
+			$forum->forum_name => array($forum->getForumLink()),
+		);			
+		
+		if($thema->zuordnung_id = Yii::app()->request->getParam('spiel_id')) {
+			$thema->spiel_id 	= $thema->zuordnung_id;
+			$thema->spiel 		= Spiel::Model()->getSingleSpiel($thema->spiel_id);
+		}				
+
+		if(isset($_POST['ForumThema'],$_POST['ForumBeitrag'])) {
+/*
+ * Daten für das Thema verarbeiten
+ */ 
+			$thema->titel 			= $_POST['ForumThema']['titel'];
+			if(isset($_POST['ForumThema']['closed_flag'])) {
+				$thema->closed_flag		= $_POST['ForumThema']['closed_flag'];
+			} else {
+				$thema->closed_flag		= 0;
+			}
+			
+			$thema->user_id				= Yii::app()->user->getId();
+			$thema->user_nick			= Yii::app()->user->name;
+
+			$thema->letzte_user_id		= Yii::app()->user->getId();
+			$thema->letzte_user_nick	= Yii::app()->user->name;
+
+			if(!$thema->zuordnung_id = Yii::app()->request->getParam('spiel_id')) {
+				$thema->spiel_id		= 0;
+				$thema->zuordnung_id	= 0;
+				$thema->voting_flag		= 0;
+			} else {
+				$thema->zuordnung		= 'spiel';
+				if(isset($_POST['ForumThema']['voting_flag']) && $_POST['ForumThema']['voting_flag'] > 0) {
+					$thema->voting_flag	= 2;
+				} else {
+					$thema->voting_flag	= 0;
+				}
+			}
+			
+			$thema->erstelltzeit		= date('Y-m-d H:i:s');
+			$thema->bearbeitetzeit		= date('Y-m-d H:i:s');
+			$thema->bearbeitet_user_id	= 0;
+			$thema->thema_id_alt		= 0;
+			$thema->anzahl_antworten	= 1;
+
+/*
+ * Daten für Beitrag verarbeiten
+ */			
+			
+			$beitrag->user_id 				= Yii::app()->user->getId();
+			$beitrag->user_nick				= Yii::app()->user->name;
+			
+			// ThemaId wird erst nach validierung gesetzt
+			$beitrag->titel					= $thema->titel;
+			$beitrag->nachricht				= $_POST['ForumBeitrag']['nachricht'];
+			$beitrag->erstelltzeit			= date('Y-m-d H:i:s');
+			$beitrag->bearbeitetzeit		= date('Y-m-d H:i:s');
+			$beitrag->bearbeitet_user_id	= 0;
+			$beitrag->beitrag_id_alt		= 0;			
+
+			if ($thema->validate()) { 
+				$transaction = Yii::app()->db->beginTransaction(); 
+				
+				$thema->save(false);
+			 
+				$beitrag->thema_id = $thema->thema_id; 
+			
+				if(!$beitrag->validate()) {
+					$transaction->rollBack();
+				} else {
+					$beitrag->save(false);
+					$transaction->commit();
+					
+					$thema->beitrag_id 			= $beitrag->beitrag_id;
+					$thema->letzte_beitrag_id 	= $beitrag->beitrag_id;
+					$thema->scenario = 'neueintrag';
+					$thema->save();
+					
+					$url = Yii::app()->createUrl('forum/'.WTFunctions::normalisiereString($thema->titel).'/'.$forum->forum_id.'/'.$thema->thema_id.'?page=1');
+					$this->redirect($url);					
+				}
+				
+			}			
+			
+			
+		} 
+		
+		$this->render('themaErstellen',array(
+				'aktion'	=> 'Thema erstellen',
+				'forum' 	=> $forum,
+				'thema' 	=> $thema,
+				'beitrag' 	=> $beitrag,
+			)
+		);	
+	}
+	
+	public function actionThema_Bearbeiten() {
+		
+		$forum		= Forum::Model()->findByPk(Yii::app()->request->getParam('board_id'));
+		
+		$thema		= ForumThema::Model(null,$forum->forum_id)->findByPk(Yii::app()->request->getParam('thema_id'));
+		$beitrag	= ForumBeitrag::Model(null,$forum->forum_id)->findByPk(Yii::app()->request->getParam('beitrag_id'));
+
+		$this->breadcrumbs = array(
+			'Community' => array('forum/'),
+			$forum->forum_name => array($forum->getForumLink()),
+			$thema->titel => $thema->getThemaLink(),
+			'Thema bearbeiten',
+		);			
+
+		if($thema->zuordnung_id > 0 && $thema->zuordnung == 'spiel') {
+			
+			
+			$thema->spiel_id 	= $thema->zuordnung_id;
+			$thema->spiel 		= Spiel::Model()->getSingleSpiel($thema->spiel_id);
+		}		
+		
+		if(isset($_POST['ForumThema'],$_POST['ForumBeitrag'])) {
+/*
+ * Daten für das Thema verarbeiten
+ */ 
+			$thema->titel 			= $_POST['ForumThema']['titel'];
+			if(isset($_POST['ForumThema']['closed_flag'])) {
+				$thema->closed_flag		= $_POST['ForumThema']['closed_flag'];
+			}
+			
+			if(isset($_POST['ForumThema']['voting_flag'])) {
+				$thema->voting_flag	= 2;
+			} else {
+				$thema->voting_flag	= 0;
+			}			
+			
+			$thema->spiel_id			= 0;
+			
+			$thema->bearbeitetzeit		= date('Y-m-d H:i:s');
+			$thema->bearbeitet_user_id	= Yii::app()->user->getId();
+
+/*
+ * Daten für Beitrag verarbeiten
+ */			
+			$beitrag->titel					= $thema->titel;
+			$beitrag->nachricht				= $_POST['ForumBeitrag']['nachricht'];
+			$beitrag->bearbeitetzeit		= date('Y-m-d H:i:s');
+			$beitrag->bearbeitet_user_id	= Yii::app()->user->getId();
+		
+
+			if ($thema->validate() && $beitrag->validate()) { 
+				$thema->save(false);
+				$beitrag->save(false);
+			 
+				$url = Yii::app()->createUrl('forum/'.WTFunctions::normalisiereString($thema->titel).'/'.$forum->forum_id.'/'.$thema->thema_id.'?page=1');
+				$this->redirect($url);					
+			}
+				
+		} 
+		
+		$this->render('themaErstellen',array(
+				'aktion'	=> 'Thema bearbeiten',
+				'forum' 	=> $forum,
+				'thema' 	=> $thema,
+				'beitrag' 	=> $beitrag,
+			)
+		);	
+	}	
+	
+	public function actionAntworten() {
+
+		$forum		= Forum::Model()->findByPk(Yii::app()->request->getParam('board_id'));
+		
+		$thema		= ForumThema::Model(null,$forum->forum_id)->findByPk(Yii::app()->request->getParam('thema_id'));
+		$beitrag	= new ForumBeitrag('insert', $forum->forum_id);
+
+		$this->breadcrumbs = array(
+			'Community' => array('forum/'),
+			$forum->forum_name => array($forum->getForumLink()),
+			$thema->titel => $thema->getThemaLink(),
+			'Antworten',
+		);		
+		
+		if(isset($_POST['ForumBeitrag'])) {
+			
+			$beitrag->user_id 				= Yii::app()->user->getId();
+			$beitrag->user_nick				= Yii::app()->user->name;
+			
+			$beitrag->thema_id				= $thema->thema_id;
+			$beitrag->titel					= $_POST['ForumBeitrag']['titel'];
+			$beitrag->nachricht				= $_POST['ForumBeitrag']['nachricht'];
+			$beitrag->erstelltzeit			= date('Y-m-d H:i:s');
+			$beitrag->bearbeitetzeit		= date('Y-m-d H:i:s');
+			$beitrag->bearbeitet_user_id	= 0;
+			$beitrag->beitrag_id_alt		= 0;
+			
+			if($beitrag->save()) {
+				$url = Yii::app()->createUrl('forum/'.WTFunctions::normalisiereString($thema->titel).'/'.$forum->forum_id.'/'.$thema->thema_id.'?page='.$beitrag->page.'#b'.$beitrag->beitrag_id);
+				$this->redirect($url);
+			}
+		}
+		
+		$this->render('antworten',array(
+				'aktion'	=> 'Beitrag beantworten',
+				'forum' 	=> $forum,
+				'thema' 	=> $thema,
+				'beitrag'	=> $beitrag
+			)
+		);	
+	}
+
+	public function actionBearbeiten() {
+
+		$forum		= Forum::Model()->findByPk(Yii::app()->request->getParam('board_id'));
+		$thema		= ForumThema::Model(null,$forum->forum_id)->findByPk(Yii::app()->request->getParam('thema_id'));
+		$beitrag	= ForumBeitrag::Model(null,$forum->forum_id)->findByPk(Yii::app()->request->getParam('beitrag_id'));
+
+		
+		$this->breadcrumbs = array(
+			'Community' => array('forum/'),
+			$forum->forum_name => array($forum->getForumLink()),
+			$thema->titel => $thema->getThemaLink(),
+			'Beitrag bearbeiten',
+		);		
+		
+		if(isset($_POST['ForumBeitrag'])) {
+			
+			$beitrag->titel					= $_POST['ForumBeitrag']['titel'];
+			$beitrag->nachricht				= $_POST['ForumBeitrag']['nachricht'];
+			$beitrag->bearbeitetzeit		= date('Y-m-d H:i:s');
+			$beitrag->bearbeitet_user_id	= Yii::app()->user->getId();
+			$beitrag->beitrag_id_alt		= 0;
+			
+			if($beitrag->save()) {
+				$url = Yii::app()->createUrl('forum/'.WTFunctions::normalisiereString($thema->titel).'/'.$forum->forum_id.'/'.$thema->thema_id.'?page='.$beitrag->page.'#b'.$beitrag->beitrag_id);
+				$this->redirect($url);			
+			}
+
+		}
+
+		$this->render('antworten',array(
+				'aktion'	=> 'Beitrag bearbeiten',
+				'forum' 	=> $forum,
+				'thema' 	=> $thema,
+				'beitrag'	=> $beitrag,
+			)
+		);	
+	}
+
+	private function getSpiel($spielID) {
+		
+	}
+	
+	public function actionLoeschen() {
+
+		
+		$forum		= Forum::Model()->findByPk(Yii::app()->request->getParam('board_id'));
+		$thema		= ForumThema::Model(null,$forum->forum_id)->findByPk(Yii::app()->request->getParam('thema_id'));
+		
+		/*
+		$this->breadcrumbs = array(
+			'Community' => array('forum/'),
+			$forum->forum_name => array($forum->getForumLink()),
+			$thema->titel
+		);		
+		*/
+		if(isset($_POST['delete_beitrag_id'])) {
+			
+			foreach($_POST['delete_beitrag_id'] as $k => $v) {
+				
+				print_r($_POST);
+				die();
+				
+				$delete = ForumBeitrag::Model(null,$forum->forum_id)->deleteByPk($v);
+				if($delete > 0) {
+					$this->refresh();
+				}
+				
+			}
+
+		}
+
+		$this->render('antworten',array(
+				'aktion'	=> 'Beitrag bearbeiten',
+				'forum' 	=> $forum,
+				'thema' 	=> $thema,
+				'beitrag'	=> $beitrag,
+			)
+		);	
+	}	
+	
+	public function actionZitieren() {
+
+		$forum		= Forum::Model()->findByPk(Yii::app()->request->getParam('board_id'));
+		$thema		= ForumThema::Model(null,$forum->forum_id)->findByPk(Yii::app()->request->getParam('thema_id'));
+		$zitat		= ForumBeitrag::Model(null,$forum->forum_id)->findByPk(Yii::app()->request->getParam('beitrag_id'));
+
+		
+		$this->breadcrumbs = array(
+			'Community' => array('forum/'),
+			$forum->forum_name => array($forum->getForumLink()),
+			$thema->titel => $thema->getThemaLink(),
+			'Beitrag zitieren',
+		);		
+		
+		$beitrag = new ForumBeitrag('insert',$forum->forum_id);
+		
+		$beitrag->nachricht = <<<EOL
+[zitat][b]Zitat von $zitat->user_nick[/b]
+$zitat->nachricht
+[/zitat]
+EOL;
+		
+		if(isset($_POST['ForumBeitrag'])) {
+			
+			$beitrag->user_id 				= Yii::app()->user->getId();
+			$beitrag->user_nick				= Yii::app()->user->name;
+			
+			$beitrag->thema_id				= $thema->thema_id;
+			$beitrag->titel					= $_POST['ForumBeitrag']['titel'];
+			$beitrag->nachricht				= $_POST['ForumBeitrag']['nachricht'];
+			$beitrag->erstelltzeit			= date('Y-m-d H:i:s');
+			$beitrag->bearbeitetzeit		= date('Y-m-d H:i:s');
+			$beitrag->bearbeitet_user_id	= 0;
+			$beitrag->beitrag_id_alt		= 0;
+
+			if($beitrag->save()) {
+				
+				$url = Yii::app()->createUrl('forum/'.WTFunctions::normalisiereString($thema->titel).'/'.$forum->forum_id.'/'.$thema->thema_id.'?page='.$beitrag->page.'#b'.$beitrag->beitrag_id);
+				$this->redirect($url);
+			
+			}
+		}
+		
+		$this->render('antworten',array(
+				'aktion'	=> 'Beitrag zitieren',
+				'forum' 	=> $forum,
+				'thema' 	=> $thema,
+				'beitrag'	=> $beitrag
+			)
+		);	
+	}	
+	
+	public function actionAlarm() {
+
+		$forum		= Forum::Model()->findByPk(Yii::app()->request->getParam('board_id'));
+		$thema		= ForumThema::Model(null,$forum->forum_id)->findByPk(Yii::app()->request->getParam('thema_id'));
+		$beitrag	= ForumBeitrag::Model(null,$forum->forum_id)->findByPk(Yii::app()->request->getParam('beitrag_id'));
+		
+		$thema->beitrag_id = $beitrag->beitrag_id;
+		
+		$thema->setAnzahlSeiten();
+		
+		$alarm = new Alarm;
+		
+		$this->breadcrumbs = array(
+			'Community' => array('forum/'),
+			$forum->forum_name => array($forum->getForumLink()),
+			$thema->titel => $thema->getThemaLink(),
+			'Beitrag bearbeiten',
+		);		
+		
+		if(isset($_POST['Alarm'])) {
+			
+			$alarm->attributes 		= $_POST['Alarm'];
+			$alarm->link 			= Yii::app()->createUrl('forum/'.WTFunctions::normalisiereString($thema->titel).'/'.$forum->forum_id.'/'.$thema->thema_id.'?page='.$thema->page.'#b'.$beitrag->beitrag_id);
+			$alarm->absender_id 	= Yii::app()->user->getId();
+			$alarm->absender_name	= Yii::app()->user->name; 
+
+			//$this->redirect($url);			
+			
+			
+			
+			//$emails = array('tetzlaff@transfermarkt.de','wandtke@transfermarkt.de','carsten-tetzlaff@web.de');
+			
+			$emails = $alarm->getAdminMails();
+			
+			if($alarm->validate()) {
+				$message = new YiiMailMessage('Wahretabelle.de: Alarmmeldung'); 
+				$message->view = 'alarm'; 
+				$message->setBody(array(
+									'alarm'=>$alarm,
+									'forum' 	=> $forum,
+									'thema' 	=> $thema,
+									'beitrag'	=> $beitrag,
+								), 'text/html'); 
+				$message->setTo($emails);
+				//$message->addTo('tetzlaff@transfermarkt');
+
+				$message->from = Yii::app()->params['systemMail']; 
+				Yii::app()->mail->send($message);
+
+				Yii::app()->user->setFlash('alarmieren','Dein Hinweis wurde gespeichert und wird zeitnah geprüft werden - vielen Dank für Deinen Einsatz.');
+				$this->refresh();
+			}
+		}
+
+		$this->render('alarm',array(
+				'forum' 	=> $forum,
+				'thema' 	=> $thema,
+				'beitrag'	=> $beitrag,
+				'alarm'		=> $alarm,
+			)
+		);	
+	}
+	
+}

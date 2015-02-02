@@ -1,0 +1,489 @@
+<?php
+class Spiel extends CActiveRecord {
+    public $aktueller_spieltag;
+    public $tippsHeimsieg;
+    public $tippsAuswaertssieg;
+    public $tippsUnentschieden;
+    public $punkte;
+    public $punkte_wt;
+    public $tore_heim;
+    public $tore_gast;
+    public $gesamtpunkte;
+    public $gesamtpunkte_wt;
+    public $user_id;
+    public $saison_id;
+    public $gesamtnote;
+   	public $fehlentscheidungen;
+    public $elfer_erhalten;
+    public $elfer_verweigert;
+    public $sonstige_erhalten;
+    public $sonstige_verweigert;
+    public $abseits_erhalten;
+    public $abseits_verweigert;
+    public $foul_erhalten;
+    public $foul_verweigert;
+    public $freistoss_erhalten;
+    public $freistoss_verweigert;
+    public $torlinie_erhalten;
+    public $torlinie_verweigert;
+    public $vorteil_erhalten;
+    public $vorteil_verweigert;
+    public $erhalten;
+    public $verweigert;
+    public $anzahl;
+    public $schiedsrichter_id;
+    public $gegner_verein_id;
+    public $scorer;
+    public $aufstellung;
+    public $fehler_gesamt;
+    public $bank;
+    public $statistik;
+    public $elfer_verweigert_gegner;
+    public $elfer_unberechtigt_erhalten;
+    public $elfer_nachteil;
+    public $elfer_unberechtigt_gegner;
+    public $elfer_nicht_gegeben;
+    
+    public $foul_verweigert_gegner;
+    public $foul_unberechtigt_erhalten;
+    public $foul_nachteil;
+    public $foul_unberechtigt_gegner;
+    public $foul_nicht_gegeben;
+    
+    public $freistoss_verweigert_gegner;
+    public $freistoss_unberechtigt_erhalten;
+    public $freistoss_nachteil;
+    public $freistoss_unberechtigt_gegner;
+    public $freistoss_nicht_gegeben;
+    
+    public $torlinie_verweigert_gegner;
+    public $torlinie_unberechtigt_erhalten;
+    public $torlinie_nachteil;
+    public $torlinie_unberechtigt_gegner;
+    public $torlinie_nicht_gegeben;
+    
+    public $vorteil_verweigert_gegner;
+    public $vorteil_unberechtigt_erhalten;
+    public $vorteil_nachteil;
+    public $vorteil_unberechtigt_gegner;
+    public $vorteil_nicht_gegeben;
+    
+    public $abseits_verweigert_gegner;
+    public $abseits_unberechtigt_erhalten;
+    public $abseits_nachteil;
+    public $abseits_unberechtigt_gegner;
+    public $abseits_nicht_gegeben;
+    
+    // Wird von extern befuellt. Wird benoetigt fuer die Ligaverwaltung
+    public $alleSchiedsrichter;
+    
+    public $labels = array(
+				'chancen' 			=> array('statistik' => 'Chancen', 'werte' => 'absolut'),
+				'ecken' 			=> array('statistik' =>'Ecken', 'werte' => 'absolut'),
+				'flanken' 			=> array('statistik' =>'Flanken', 'werte' => 'absolut'),
+				'zweikaempfe'		=> array('statistik' =>'Zweikämpfe', 'werte' => 'absolut'),
+				'abseits'			=> array('statistik' =>'Abseits', 'werte' => 'absolut'),
+				'fouls'				=> array('statistik' =>'Fouls', 'class' => 'bgred', 'werte' => 'absolut'),
+				'schuesse_aufs_tor'	=> array('statistik' =>'Torschüsse', 'werte' => 'absolut'),
+				'ballbesitz'		=> array('statistik' =>'Ballbesitz', 'werte' => 'prozentual')
+			);
+    public $relevanteThemen;
+    
+    public static function model($className = __CLASS__) {
+        return parent::model($className);
+    }
+
+    public function tableName() {
+        return 'spiel';
+    }
+    
+    public function rules() {
+    	return array(
+    		array('spiel_id_alt, tm_spiel_id, saison_id, verein_id_h, verein_id_g, tore_h, tore_g, tore_hz_h, tore_hz_g, tore_wt_h, tore_wt_g, anstossDatum, anstossUhrzeit, spieltag, schiedsrichter_id, tipps_aktualisiert_flag, tipps_korrigiert_flag, ergebnis_eingetragen_flag, ergebnis_korrigiert_flag', 'required'),
+			array('spiel_id_alt, tore_h, tore_g, tore_hz_h, tore_hz_g, tore_wt_h, tore_wt_g, tipps_aktualisiert_flag, tipps_korrigiert_flag, ergebnis_eingetragen_flag, ergebnis_korrigiert_flag', 'numerical', 'integerOnly'=>true),
+			array('tm_spiel_id', 'length', 'max'=>11),
+			array('saison_id, verein_id_h, verein_id_g, spieltag, sort, schiedsrichter_id', 'length', 'max'=>10),
+			array('zuschauer', 'length', 'max'=>7),
+			array('anstosszeit', 'safe'),
+			// The following rule is used by search().
+			// Please remove those attributes that should not be searched.
+			array('spiel_id, spiel_id_alt, tm_spiel_id, saison_id, verein_id_h, verein_id_g, tore_h, tore_g, tore_hz_h, tore_hz_g, tore_wt_h, tore_wt_g, anstosszeit, anstossDatum, anstossUhrzeit, zuschauer, spieltag, sort, schiedsrichter_id, tipps_aktualisiert_flag, tipps_korrigiert_flag, ergebnis_eingetragen_flag, ergebnis_korrigiert_flag', 'safe', 'on'=>'search'),
+		);
+    }
+
+    public function relations() {
+        return array(
+                'schiedsrichter' => array(
+                        self::HAS_ONE,
+                        'Schiedsrichter',
+                        array(
+                                'schiedsrichter_id' => 'schiedsrichter_id'
+                        )
+                ),
+                'schirinoten' => array(
+                        self::HAS_MANY,
+                        'Schiedsrichter',
+                        array(
+                                'schiedsrichter_id' => 'schiedsrichter_id'
+                        )
+                ),
+                'spiel_fehlentscheidung' => array(
+                        self::HAS_ONE,
+                        'SpielFehlentscheidung',
+                        'spiel_id',
+                        'joinType' => 'INNER JOIN'
+                ),
+                'saison' => array(
+                        self::HAS_ONE,
+                        'Saison',
+                        'saison_id'
+                ),
+                'verein_h' => array(
+                        self::BELONGS_TO,
+                        'Verein',
+                        array(
+                                'verein_id_h' => 'verein_id'
+                        )
+                ),
+                'verein_g' => array(
+                        self::BELONGS_TO,
+                        'Verein',
+                        array(
+                                'verein_id_g' => 'verein_id'
+                        )
+                ),
+                'tipp' => array(
+                        self::HAS_MANY,
+                        'Tipp',
+                        'spiel_id'
+                )
+        );
+    }
+
+    public function getNummerAktuellerSpieltag($saison_id) {
+        $spieltag = $this->find(array(
+                'select' => 'spieltag AS aktueller_spieltag, ABS(DATEDIFF(CURDATE(), anstosszeit)) AS zeitabstand',
+                'condition' => 'saison_id = :saison_id AND DATE_ADD(CURDATE(), INTERVAL 1 DAY) > anstosszeit',
+                'order' => 'zeitabstand ASC',
+                'limit' => 1,
+                'params' => array(
+                        ':saison_id' => $saison_id
+                )
+        ));
+        /*$spieltag = $this->find(array(
+                'select' => 'spieltag AS aktueller_spieltag, ABS(DATEDIFF(CURDATE(), anstosszeit)) AS zeitabstand',
+                'condition' => 'saison_id = :saison_id',
+                'order' => 'zeitabstand ASC',
+                'limit' => 1,
+                'params' => array(
+                        ':saison_id' => $saison_id
+                )
+        ));*/
+        return $spieltag->aktueller_spieltag;
+    }
+
+    public function getNummerFolgenderSpieltag($saison_id) {
+        $spieltag = $this->find(array(
+                'select' => 'spieltag AS aktueller_spieltag, ABS(DATEDIFF(CURDATE(), anstosszeit)) AS zeitabstand',
+                'condition' => 'saison_id = :saison_id AND CURDATE() < anstosszeit',
+                'order' => 'zeitabstand ASC',
+                'limit' => 1,
+                'params' => array(
+                        ':saison_id' => $saison_id
+                )
+        ));
+        return $spieltag->aktueller_spieltag;
+    }
+
+    public function getNummerLetzterSpieltag($saison_id) {
+        $spieltag = $this->find(array(
+                'select' => 'spieltag AS aktueller_spieltag, ABS(DATEDIFF(CURDATE(), anstosszeit)) AS zeitabstand',
+                'condition' => 'saison_id = :saison_id AND CURDATE() > anstosszeit',
+                'order' => 'zeitabstand ASC',
+                'limit' => 1,
+                'params' => array(
+                        ':saison_id' => $saison_id
+                )
+        ));
+        return $spieltag->aktueller_spieltag;
+    }
+    
+    public function getSpieleBySaisonAndSpieltag($saisonId, $spieltag) {
+        $spiele = $this->with('verein_h', 'verein_g', 'schiedsrichter')->findAll(array(
+                'condition' => 'saison_id = :saison_id AND spieltag = :spieltag',
+                'params' => array(
+                        ':saison_id' => $saisonId,
+                        ':spieltag' => $spieltag
+                ),
+                'order' => 'anstosszeit ASC, sort ASC'
+        ));
+        return $spiele;
+    }
+    
+    public function getSpieleBySaison($saisonId) {
+        $spiele = $this->with('verein_h', 'verein_g')->findAll(array(
+                'condition' => 'saison_id = :saison_id',
+                'params' => array(
+                        ':saison_id' => $saisonId,
+                ),
+                'order' => 'spieltag DESC,anstosszeit ASC, sort ASC'
+        ));
+        return $spiele;
+    }
+
+    public function getAlleSpieleBySaisonNichtAusgewertet($saisonId) {
+        $spiele = $this->findAll(array(
+                'condition' => 'saison_id = :saison_id AND tipps_aktualisiert_flag = 0 AND ergebnis_eingetragen_flag = 1',
+                'params' => array(
+                        ':saison_id' => $saisonId,
+                ),
+                'order' => 'spieltag DESC,anstosszeit ASC, sort ASC',
+        ));
+        return $spiele;
+    }
+    
+    
+    public function getAlleSpieleBySaisonKorrigiertAusgewertet($saisonId) {
+        $spiele = $this->findAll(array(
+                'condition' => 'saison_id = :saison_id AND tipps_korrigiert_flag = 0 AND ergebnis_korrigiert_flag = 1',
+                'params' => array(
+                        ':saison_id' => $saisonId,
+                ),
+                'order' => 'spieltag DESC,anstosszeit ASC, sort ASC',
+        ));
+        return $spiele;
+    }
+    
+    
+    public function getSingleSpiel($spielId) {
+        $spiel = $this->with('verein_h', 'verein_g')->find(array(
+                'select' => '*',
+				'condition' => 'spiel_id = :spiel_id',
+                'params' => array(
+                        ':spiel_id' => $spielId,
+                )
+        ));
+        return $spiel;
+    }
+    
+    public function getSpielBySchiedsrichterAndSpieltagAndSaison($schiedsrichterId,$spieltag,$saisonId) {
+        $schiedsrichter = $this->find(array(
+                'select' => 'spiel_id',
+                'condition' => 'saison_id = :saison_id AND spieltag = :spieltag AND schiedsrichter_id = :schiedsrichter_id',
+                'params' => array(
+                        ':schiedsrichter_id' => $schiedsrichterId,
+                        ':spieltag' => $spieltag,
+                        ':saison_id' => $saisonId,
+                )
+        ));
+        return $schiedsrichter;
+    }
+
+    public function getSpielDaten($spiel_id) {
+    	$spiel = Yii::app()->db->createCommand()
+            ->select('s.spiel_id,
+                    s.verein_id_h,
+                    s.verein_id_g,
+                    s.tore_h,
+                    s.tore_g,
+                    s.tore_hz_h,
+                    s.tore_hz_g,
+                    s.anstosszeit')
+            ->from('spiel s')
+            ->where('s.spiel_id = :spiel_id', array(':spiel_id' => $spiel_id))
+            ->queryRow();
+        return $spiel;
+    }
+    
+    
+    public function getFehlentscheidungenVereinBySaison($verein_id,$saisonId) {
+		$fehlentscheidungen = $this->with('spiel_fehlentscheidung')->find(array(
+                'select' => array('t.spiel_id','SUM(IF(spiel_fehlentscheidung.verein_id = '.$verein_id.' AND (((t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.tore_neu_g < spiel_fehlentscheidung.tore_alt_g) OR (t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.tore_alt_h < spiel_fehlentscheidung.tore_neu_h)) OR ((t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.tore_neu_h < spiel_fehlentscheidung.tore_alt_h) OR (t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.tore_alt_g < spiel_fehlentscheidung.tore_neu_g))),1,0)) AS verweigert','SUM(IF(spiel_fehlentscheidung.verein_id != '.$verein_id.' AND (((t.verein_id_h = '.$verein_id.' AND tore_neu_h < spiel_fehlentscheidung.tore_alt_h) OR (t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.tore_alt_g < spiel_fehlentscheidung.tore_neu_g)) OR ((t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.tore_neu_g < spiel_fehlentscheidung.tore_alt_g) OR (t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.tore_alt_h < spiel_fehlentscheidung.tore_neu_h))),1,0)) AS erhalten','SUM(IF(spiel_fehlentscheidung.verein_id = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 1 AND (((t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 1 AND spiel_fehlentscheidung.tore_neu_g < spiel_fehlentscheidung.tore_alt_g) OR (t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 1 AND spiel_fehlentscheidung.tore_alt_h < spiel_fehlentscheidung.tore_neu_h)) OR ((t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 1 AND spiel_fehlentscheidung.tore_neu_h < spiel_fehlentscheidung.tore_alt_h) OR (t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 1 AND spiel_fehlentscheidung.tore_alt_g < spiel_fehlentscheidung.tore_neu_g))),1,0)) AS elfer_verweigert','SUM(IF(spiel_fehlentscheidung.verein_id != '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 1 AND (((t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 1 AND tore_neu_h < spiel_fehlentscheidung.tore_alt_h) OR (t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 1 AND spiel_fehlentscheidung.tore_alt_g < spiel_fehlentscheidung.tore_neu_g)) OR ((t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 1 AND spiel_fehlentscheidung.tore_neu_g < spiel_fehlentscheidung.tore_alt_g) OR (t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 1 AND spiel_fehlentscheidung.tore_alt_h < spiel_fehlentscheidung.tore_neu_h))),1,0)) AS elfer_erhalten','SUM(IF(spiel_fehlentscheidung.verein_id = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 6 AND (((t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 6 AND spiel_fehlentscheidung.tore_neu_g < spiel_fehlentscheidung.tore_alt_g) OR (t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 6 AND spiel_fehlentscheidung.tore_alt_h < spiel_fehlentscheidung.tore_neu_h)) OR ((t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 6 AND spiel_fehlentscheidung.tore_neu_h < spiel_fehlentscheidung.tore_alt_h) OR (t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 6 AND spiel_fehlentscheidung.tore_alt_g < spiel_fehlentscheidung.tore_neu_g))),1,0)) AS abseits_verweigert','SUM(IF(spiel_fehlentscheidung.verein_id != '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 6 AND (((t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 6 AND tore_neu_h < spiel_fehlentscheidung.tore_alt_h) OR (t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 6 AND spiel_fehlentscheidung.tore_alt_g < spiel_fehlentscheidung.tore_neu_g)) OR ((t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 6 AND spiel_fehlentscheidung.tore_neu_g < spiel_fehlentscheidung.tore_alt_g) OR (t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 6 AND spiel_fehlentscheidung.tore_alt_h < spiel_fehlentscheidung.tore_neu_h))),1,0)) AS abseits_erhalten','SUM(IF(spiel_fehlentscheidung.verein_id != '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 6 AND (((t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 6 AND tore_neu_h < spiel_fehlentscheidung.tore_alt_h) OR (t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 6 AND spiel_fehlentscheidung.tore_alt_g < spiel_fehlentscheidung.tore_neu_g)) OR ((t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 6 AND spiel_fehlentscheidung.tore_neu_g < spiel_fehlentscheidung.tore_alt_g) OR (t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 6 AND spiel_fehlentscheidung.tore_alt_h < spiel_fehlentscheidung.tore_neu_h))),1,0)) AS elfer_erhalten','SUM(IF(spiel_fehlentscheidung.verein_id = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id NOT IN (1,6) AND (((t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id NOT IN (1,6) AND spiel_fehlentscheidung.tore_neu_g < spiel_fehlentscheidung.tore_alt_g) OR (t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id NOT IN (1,6) AND spiel_fehlentscheidung.tore_alt_h < spiel_fehlentscheidung.tore_neu_h)) OR ((t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id NOT IN (1,6) AND spiel_fehlentscheidung.tore_neu_h < spiel_fehlentscheidung.tore_alt_h) OR (t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id NOT IN (1,6) AND spiel_fehlentscheidung.tore_alt_g < spiel_fehlentscheidung.tore_neu_g))),1,0)) AS sonstige_verweigert','SUM(IF(spiel_fehlentscheidung.verein_id != '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id NOT IN (1,6) AND (((t.verein_id_h = '.$verein_id.' AND tore_neu_h < spiel_fehlentscheidung.tore_alt_h) OR (t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id NOT IN (1,6) AND spiel_fehlentscheidung.tore_alt_g < spiel_fehlentscheidung.tore_neu_g)) OR ((t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id NOT IN (1,6) AND spiel_fehlentscheidung.tore_neu_g < spiel_fehlentscheidung.tore_alt_g) OR (t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id NOT IN (1,6) AND spiel_fehlentscheidung.tore_alt_h < spiel_fehlentscheidung.tore_neu_h))),1,0)) AS sonstige_erhalten'
+                ,'SUM(IF(spiel_fehlentscheidung.verein_id = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 2 AND (((t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 2 AND spiel_fehlentscheidung.tore_neu_g < spiel_fehlentscheidung.tore_alt_g) OR (t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 2 AND spiel_fehlentscheidung.tore_alt_h < spiel_fehlentscheidung.tore_neu_h)) OR ((t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 2 AND spiel_fehlentscheidung.tore_neu_h < spiel_fehlentscheidung.tore_alt_h) OR (t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 2 AND spiel_fehlentscheidung.tore_alt_g < spiel_fehlentscheidung.tore_neu_g))),1,0)) AS foul_verweigert','SUM(IF(spiel_fehlentscheidung.verein_id != '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 2 AND (((t.verein_id_h = '.$verein_id.' AND tore_neu_h < spiel_fehlentscheidung.tore_alt_h) OR (t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 2 AND spiel_fehlentscheidung.tore_alt_g < spiel_fehlentscheidung.tore_neu_g)) OR ((t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 2 AND spiel_fehlentscheidung.tore_neu_g < spiel_fehlentscheidung.tore_alt_g) OR (t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 2 AND spiel_fehlentscheidung.tore_alt_h < spiel_fehlentscheidung.tore_neu_h))),1,0)) AS foul_erhalten'
+                ,'SUM(IF(spiel_fehlentscheidung.verein_id = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 3 AND (((t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 3 AND spiel_fehlentscheidung.tore_neu_g < spiel_fehlentscheidung.tore_alt_g) OR (t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 3 AND spiel_fehlentscheidung.tore_alt_h < spiel_fehlentscheidung.tore_neu_h)) OR ((t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 3 AND spiel_fehlentscheidung.tore_neu_h < spiel_fehlentscheidung.tore_alt_h) OR (t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 3 AND spiel_fehlentscheidung.tore_alt_g < spiel_fehlentscheidung.tore_neu_g))),1,0)) AS freistoss_verweigert','SUM(IF(spiel_fehlentscheidung.verein_id != '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 3 AND (((t.verein_id_h = '.$verein_id.' AND tore_neu_h < spiel_fehlentscheidung.tore_alt_h) OR (t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 3 AND spiel_fehlentscheidung.tore_alt_g < spiel_fehlentscheidung.tore_neu_g)) OR ((t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 3 AND spiel_fehlentscheidung.tore_neu_g < spiel_fehlentscheidung.tore_alt_g) OR (t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 3 AND spiel_fehlentscheidung.tore_alt_h < spiel_fehlentscheidung.tore_neu_h))),1,0)) AS freistoss_erhalten'
+                ,'SUM(IF(spiel_fehlentscheidung.verein_id = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 4 AND (((t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 4 AND spiel_fehlentscheidung.tore_neu_g < spiel_fehlentscheidung.tore_alt_g) OR (t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 4 AND spiel_fehlentscheidung.tore_alt_h < spiel_fehlentscheidung.tore_neu_h)) OR ((t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 4 AND spiel_fehlentscheidung.tore_neu_h < spiel_fehlentscheidung.tore_alt_h) OR (t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 4 AND spiel_fehlentscheidung.tore_alt_g < spiel_fehlentscheidung.tore_neu_g))),1,0)) AS torlinie_verweigert','SUM(IF(spiel_fehlentscheidung.verein_id != '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 4 AND (((t.verein_id_h = '.$verein_id.' AND tore_neu_h < spiel_fehlentscheidung.tore_alt_h) OR (t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 4 AND spiel_fehlentscheidung.tore_alt_g < spiel_fehlentscheidung.tore_neu_g)) OR ((t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 4 AND spiel_fehlentscheidung.tore_neu_g < spiel_fehlentscheidung.tore_alt_g) OR (t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 4 AND spiel_fehlentscheidung.tore_alt_h < spiel_fehlentscheidung.tore_neu_h))),1,0)) AS torlinie_erhalten'
+                ,'SUM(IF(spiel_fehlentscheidung.verein_id = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 5 AND (((t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 5 AND spiel_fehlentscheidung.tore_neu_g < spiel_fehlentscheidung.tore_alt_g) OR (t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 5 AND spiel_fehlentscheidung.tore_alt_h < spiel_fehlentscheidung.tore_neu_h)) OR ((t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 5 AND spiel_fehlentscheidung.tore_neu_h < spiel_fehlentscheidung.tore_alt_h) OR (t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 5 AND spiel_fehlentscheidung.tore_alt_g < spiel_fehlentscheidung.tore_neu_g))),1,0)) AS vorteil_verweigert','SUM(IF(spiel_fehlentscheidung.verein_id != '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 5 AND (((t.verein_id_h = '.$verein_id.' AND tore_neu_h < spiel_fehlentscheidung.tore_alt_h) OR (t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 5 AND spiel_fehlentscheidung.tore_alt_g < spiel_fehlentscheidung.tore_neu_g)) OR ((t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 5 AND spiel_fehlentscheidung.tore_neu_g < spiel_fehlentscheidung.tore_alt_g) OR (t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 5 AND spiel_fehlentscheidung.tore_alt_h < spiel_fehlentscheidung.tore_neu_h))),1,0)) AS vorteil_erhalten'),
+                'condition' => 't.saison_id = :saison_id AND (t.verein_id_h = :verein_id OR t.verein_id_g = :verein_id) AND spiel_fehlentscheidung.anzeige_flag = 1',
+                'limit' => 1,
+                'params' => array(
+                        ':saison_id' => $saisonId,
+                        ':verein_id' => $verein_id
+                )     
+        ));
+        return $fehlentscheidungen;
+    }
+    
+    
+    public function getFehlentscheidungenDetailVereinBySaison($verein_id,$saisonId) {
+		$fehlentscheidungen = $this->with('spiel_fehlentscheidung')->find(array(
+                'select' => array('t.spiel_id'
+                ,'SUM(IF(spiel_fehlentscheidung.verein_id = '.$verein_id.' AND (((t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.tore_neu_g < spiel_fehlentscheidung.tore_alt_g) OR (t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.tore_alt_h < spiel_fehlentscheidung.tore_neu_h)) OR ((t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.tore_neu_h < spiel_fehlentscheidung.tore_alt_h) OR (t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.tore_alt_g < spiel_fehlentscheidung.tore_neu_g))),1,0)) AS verweigert','SUM(IF(spiel_fehlentscheidung.verein_id != '.$verein_id.' AND (((t.verein_id_h = '.$verein_id.' AND tore_neu_h < spiel_fehlentscheidung.tore_alt_h) OR (t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.tore_alt_g < spiel_fehlentscheidung.tore_neu_g)) OR ((t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.tore_neu_g < spiel_fehlentscheidung.tore_alt_g) OR (t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.tore_alt_h < spiel_fehlentscheidung.tore_neu_h))),1,0)) AS erhalten'
+
+                ,'SUM(IF(spiel_fehlentscheidung.verein_id = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 1 AND (((t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 1 AND spiel_fehlentscheidung.tore_neu_g < spiel_fehlentscheidung.tore_alt_g) OR (t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 1 AND spiel_fehlentscheidung.tore_alt_h < spiel_fehlentscheidung.tore_neu_h)) OR ((t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 1 AND spiel_fehlentscheidung.tore_neu_h < spiel_fehlentscheidung.tore_alt_h) OR (t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 1 AND spiel_fehlentscheidung.tore_alt_g < spiel_fehlentscheidung.tore_neu_g))),1,0)) AS elfer_verweigert'
+				,'SUM(IF(spiel_fehlentscheidung.verein_id = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 1 AND (((t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 1 AND spiel_fehlentscheidung.tore_neu_g < spiel_fehlentscheidung.tore_alt_g) OR (t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 1 AND spiel_fehlentscheidung.tore_neu_h < spiel_fehlentscheidung.tore_alt_h))),1,0)) AS elfer_unberechtigt_gegner' 
+				,'SUM(IF(spiel_fehlentscheidung.verein_id = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 1 AND (((t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 1 AND spiel_fehlentscheidung.tore_alt_h < spiel_fehlentscheidung.tore_neu_h) OR (t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 1 AND spiel_fehlentscheidung.tore_alt_g < spiel_fehlentscheidung.tore_neu_g))),1,0)) AS elfer_nicht_gegeben' 
+
+                ,'SUM(IF(spiel_fehlentscheidung.verein_id != '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 1 AND (((t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 1 AND tore_neu_h < spiel_fehlentscheidung.tore_alt_h) OR (t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 1 AND spiel_fehlentscheidung.tore_alt_g < spiel_fehlentscheidung.tore_neu_g)) OR ((t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 1 AND spiel_fehlentscheidung.tore_neu_g < spiel_fehlentscheidung.tore_alt_g) OR (t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 1 AND spiel_fehlentscheidung.tore_alt_h < spiel_fehlentscheidung.tore_neu_h))),1,0)) AS elfer_erhalten'
+                ,'SUM(IF(spiel_fehlentscheidung.verein_id != '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 1 AND (((t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 1 AND tore_neu_h < spiel_fehlentscheidung.tore_alt_h)) OR ((t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 1 AND spiel_fehlentscheidung.tore_neu_g < spiel_fehlentscheidung.tore_alt_g))),1,0)) AS elfer_unberechtigt_erhalten'
+                ,'SUM(IF(spiel_fehlentscheidung.verein_id != '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 1 AND (((t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 1 AND spiel_fehlentscheidung.tore_alt_g < spiel_fehlentscheidung.tore_neu_g)) OR ((t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 1 AND spiel_fehlentscheidung.tore_alt_h < spiel_fehlentscheidung.tore_neu_h))),1,0)) AS elfer_verweigert_gegner'
+                                
+                ,'SUM(IF(spiel_fehlentscheidung.verein_id = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 2 AND (((t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 2 AND spiel_fehlentscheidung.tore_neu_g < spiel_fehlentscheidung.tore_alt_g) OR (t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 2 AND spiel_fehlentscheidung.tore_alt_h < spiel_fehlentscheidung.tore_neu_h)) OR ((t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 1 AND spiel_fehlentscheidung.tore_neu_h < spiel_fehlentscheidung.tore_alt_h) OR (t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 1 AND spiel_fehlentscheidung.tore_alt_g < spiel_fehlentscheidung.tore_neu_g))),1,0)) AS foul_verweigert'
+				,'SUM(IF(spiel_fehlentscheidung.verein_id = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 2 AND (((t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 2 AND spiel_fehlentscheidung.tore_neu_g < spiel_fehlentscheidung.tore_alt_g) OR (t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 2 AND spiel_fehlentscheidung.tore_neu_h < spiel_fehlentscheidung.tore_alt_h))),1,0)) AS foul_unberechtigt_gegner' 
+				,'SUM(IF(spiel_fehlentscheidung.verein_id = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 2 AND (((t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 2 AND spiel_fehlentscheidung.tore_alt_h < spiel_fehlentscheidung.tore_neu_h) OR (t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 2 AND spiel_fehlentscheidung.tore_alt_g < spiel_fehlentscheidung.tore_neu_g))),1,0)) AS foul_nicht_gegeben' 
+
+                ,'SUM(IF(spiel_fehlentscheidung.verein_id != '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 2 AND (((t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 2 AND tore_neu_h < spiel_fehlentscheidung.tore_alt_h) OR (t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 2 AND spiel_fehlentscheidung.tore_alt_g < spiel_fehlentscheidung.tore_neu_g)) OR ((t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 1 AND spiel_fehlentscheidung.tore_neu_g < spiel_fehlentscheidung.tore_alt_g) OR (t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 1 AND spiel_fehlentscheidung.tore_alt_h < spiel_fehlentscheidung.tore_neu_h))),1,0)) AS foul_erhalten'
+                ,'SUM(IF(spiel_fehlentscheidung.verein_id != '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 2 AND (((t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 2 AND tore_neu_h < spiel_fehlentscheidung.tore_alt_h)) OR ((t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 2 AND spiel_fehlentscheidung.tore_neu_g < spiel_fehlentscheidung.tore_alt_g))),1,0)) AS foul_unberechtigt_erhalten'
+                ,'SUM(IF(spiel_fehlentscheidung.verein_id != '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 2 AND (((t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 2 AND spiel_fehlentscheidung.tore_alt_g < spiel_fehlentscheidung.tore_neu_g)) OR ((t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 2 AND spiel_fehlentscheidung.tore_alt_h < spiel_fehlentscheidung.tore_neu_h))),1,0)) AS foul_verweigert_gegner'
+                
+                ,'SUM(IF(spiel_fehlentscheidung.verein_id = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 3 AND (((t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 3 AND spiel_fehlentscheidung.tore_neu_g < spiel_fehlentscheidung.tore_alt_g) OR (t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 3 AND spiel_fehlentscheidung.tore_alt_h < spiel_fehlentscheidung.tore_neu_h)) OR ((t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 1 AND spiel_fehlentscheidung.tore_neu_h < spiel_fehlentscheidung.tore_alt_h) OR (t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 1 AND spiel_fehlentscheidung.tore_alt_g < spiel_fehlentscheidung.tore_neu_g))),1,0)) AS freistoss_verweigert'
+				,'SUM(IF(spiel_fehlentscheidung.verein_id = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 3 AND (((t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 3 AND spiel_fehlentscheidung.tore_neu_g < spiel_fehlentscheidung.tore_alt_g) OR (t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 3 AND spiel_fehlentscheidung.tore_neu_h < spiel_fehlentscheidung.tore_alt_h))),1,0)) AS freistoss_unberechtigt_gegner' 
+				,'SUM(IF(spiel_fehlentscheidung.verein_id = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 3 AND (((t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 3 AND spiel_fehlentscheidung.tore_alt_h < spiel_fehlentscheidung.tore_neu_h) OR (t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 3 AND spiel_fehlentscheidung.tore_alt_g < spiel_fehlentscheidung.tore_neu_g))),1,0)) AS freistoss_nicht_gegeben' 
+
+                ,'SUM(IF(spiel_fehlentscheidung.verein_id != '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 3 AND (((t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 3 AND tore_neu_h < spiel_fehlentscheidung.tore_alt_h) OR (t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 3 AND spiel_fehlentscheidung.tore_alt_g < spiel_fehlentscheidung.tore_neu_g)) OR ((t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 1 AND spiel_fehlentscheidung.tore_neu_g < spiel_fehlentscheidung.tore_alt_g) OR (t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 1 AND spiel_fehlentscheidung.tore_alt_h < spiel_fehlentscheidung.tore_neu_h))),1,0)) AS freistoss_erhalten'
+                ,'SUM(IF(spiel_fehlentscheidung.verein_id != '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 3 AND (((t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 3 AND tore_neu_h < spiel_fehlentscheidung.tore_alt_h)) OR ((t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 3 AND spiel_fehlentscheidung.tore_neu_g < spiel_fehlentscheidung.tore_alt_g))),1,0)) AS freistoss_unberechtigt_erhalten'
+                ,'SUM(IF(spiel_fehlentscheidung.verein_id != '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 3 AND (((t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 3 AND spiel_fehlentscheidung.tore_alt_g < spiel_fehlentscheidung.tore_neu_g)) OR ((t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 3 AND spiel_fehlentscheidung.tore_alt_h < spiel_fehlentscheidung.tore_neu_h))),1,0)) AS freistoss_verweigert_gegner'
+                
+                ,'SUM(IF(spiel_fehlentscheidung.verein_id = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 4 AND (((t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 4 AND spiel_fehlentscheidung.tore_neu_g < spiel_fehlentscheidung.tore_alt_g) OR (t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 4 AND spiel_fehlentscheidung.tore_alt_h < spiel_fehlentscheidung.tore_neu_h)) OR ((t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 1 AND spiel_fehlentscheidung.tore_neu_h < spiel_fehlentscheidung.tore_alt_h) OR (t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 1 AND spiel_fehlentscheidung.tore_alt_g < spiel_fehlentscheidung.tore_neu_g))),1,0)) AS torlinie_verweigert'
+				,'SUM(IF(spiel_fehlentscheidung.verein_id = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 4 AND (((t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 4 AND spiel_fehlentscheidung.tore_neu_g < spiel_fehlentscheidung.tore_alt_g) OR (t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 4 AND spiel_fehlentscheidung.tore_neu_h < spiel_fehlentscheidung.tore_alt_h))),1,0)) AS torlinie_unberechtigt_gegner' 
+				,'SUM(IF(spiel_fehlentscheidung.verein_id = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 4 AND (((t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 4 AND spiel_fehlentscheidung.tore_alt_h < spiel_fehlentscheidung.tore_neu_h) OR (t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 4 AND spiel_fehlentscheidung.tore_alt_g < spiel_fehlentscheidung.tore_neu_g))),1,0)) AS torlinie_nicht_gegeben' 
+
+                ,'SUM(IF(spiel_fehlentscheidung.verein_id != '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 4 AND (((t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 4 AND tore_neu_h < spiel_fehlentscheidung.tore_alt_h) OR (t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 4 AND spiel_fehlentscheidung.tore_alt_g < spiel_fehlentscheidung.tore_neu_g)) OR ((t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 1 AND spiel_fehlentscheidung.tore_neu_g < spiel_fehlentscheidung.tore_alt_g) OR (t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 1 AND spiel_fehlentscheidung.tore_alt_h < spiel_fehlentscheidung.tore_neu_h))),1,0)) AS torlinie_erhalten'
+                ,'SUM(IF(spiel_fehlentscheidung.verein_id != '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 4 AND (((t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 4 AND tore_neu_h < spiel_fehlentscheidung.tore_alt_h)) OR ((t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 4 AND spiel_fehlentscheidung.tore_neu_g < spiel_fehlentscheidung.tore_alt_g))),1,0)) AS torlinie_unberechtigt_erhalten'
+                ,'SUM(IF(spiel_fehlentscheidung.verein_id != '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 4 AND (((t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 4 AND spiel_fehlentscheidung.tore_alt_g < spiel_fehlentscheidung.tore_neu_g)) OR ((t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 4 AND spiel_fehlentscheidung.tore_alt_h < spiel_fehlentscheidung.tore_neu_h))),1,0)) AS torlinie_verweigert_gegner'
+                
+                ,'SUM(IF(spiel_fehlentscheidung.verein_id = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 5 AND (((t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 5 AND spiel_fehlentscheidung.tore_neu_g < spiel_fehlentscheidung.tore_alt_g) OR (t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 5 AND spiel_fehlentscheidung.tore_alt_h < spiel_fehlentscheidung.tore_neu_h)) OR ((t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 1 AND spiel_fehlentscheidung.tore_neu_h < spiel_fehlentscheidung.tore_alt_h) OR (t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 1 AND spiel_fehlentscheidung.tore_alt_g < spiel_fehlentscheidung.tore_neu_g))),1,0)) AS vorteil_verweigert'
+				,'SUM(IF(spiel_fehlentscheidung.verein_id = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 5 AND (((t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 5 AND spiel_fehlentscheidung.tore_neu_g < spiel_fehlentscheidung.tore_alt_g) OR (t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 5 AND spiel_fehlentscheidung.tore_neu_h < spiel_fehlentscheidung.tore_alt_h))),1,0)) AS vorteil_unberechtigt_gegner' 
+				,'SUM(IF(spiel_fehlentscheidung.verein_id = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 5 AND (((t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 5 AND spiel_fehlentscheidung.tore_alt_h < spiel_fehlentscheidung.tore_neu_h) OR (t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 5 AND spiel_fehlentscheidung.tore_alt_g < spiel_fehlentscheidung.tore_neu_g))),1,0)) AS vorteil_nicht_gegeben' 
+
+                ,'SUM(IF(spiel_fehlentscheidung.verein_id != '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 5 AND (((t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 5 AND tore_neu_h < spiel_fehlentscheidung.tore_alt_h) OR (t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 5 AND spiel_fehlentscheidung.tore_alt_g < spiel_fehlentscheidung.tore_neu_g)) OR ((t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 1 AND spiel_fehlentscheidung.tore_neu_g < spiel_fehlentscheidung.tore_alt_g) OR (t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 1 AND spiel_fehlentscheidung.tore_alt_h < spiel_fehlentscheidung.tore_neu_h))),1,0)) AS vorteil_erhalten'
+                ,'SUM(IF(spiel_fehlentscheidung.verein_id != '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 5 AND (((t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 5 AND tore_neu_h < spiel_fehlentscheidung.tore_alt_h)) OR ((t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 5 AND spiel_fehlentscheidung.tore_neu_g < spiel_fehlentscheidung.tore_alt_g))),1,0)) AS vorteil_unberechtigt_erhalten'
+                ,'SUM(IF(spiel_fehlentscheidung.verein_id != '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 5 AND (((t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 5 AND spiel_fehlentscheidung.tore_alt_g < spiel_fehlentscheidung.tore_neu_g)) OR ((t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 5 AND spiel_fehlentscheidung.tore_alt_h < spiel_fehlentscheidung.tore_neu_h))),1,0)) AS vorteil_verweigert_gegner'
+                
+                ,'SUM(IF(spiel_fehlentscheidung.verein_id = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 6 AND (((t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 6 AND spiel_fehlentscheidung.tore_neu_g < spiel_fehlentscheidung.tore_alt_g) OR (t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 6 AND spiel_fehlentscheidung.tore_alt_h < spiel_fehlentscheidung.tore_neu_h)) OR ((t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 1 AND spiel_fehlentscheidung.tore_neu_h < spiel_fehlentscheidung.tore_alt_h) OR (t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 1 AND spiel_fehlentscheidung.tore_alt_g < spiel_fehlentscheidung.tore_neu_g))),1,0)) AS abseits_verweigert'
+				,'SUM(IF(spiel_fehlentscheidung.verein_id = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 6 AND (((t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 6 AND spiel_fehlentscheidung.tore_neu_g < spiel_fehlentscheidung.tore_alt_g) OR (t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 6 AND spiel_fehlentscheidung.tore_neu_h < spiel_fehlentscheidung.tore_alt_h))),1,0)) AS abseits_unberechtigt_gegner' 
+				,'SUM(IF(spiel_fehlentscheidung.verein_id = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 6 AND (((t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 6 AND spiel_fehlentscheidung.tore_alt_h < spiel_fehlentscheidung.tore_neu_h) OR (t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 6 AND spiel_fehlentscheidung.tore_alt_g < spiel_fehlentscheidung.tore_neu_g))),1,0)) AS abseits_nicht_gegeben' 
+
+                ,'SUM(IF(spiel_fehlentscheidung.verein_id != '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 6 AND (((t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 6 AND tore_neu_h < spiel_fehlentscheidung.tore_alt_h) OR (t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 6 AND spiel_fehlentscheidung.tore_alt_g < spiel_fehlentscheidung.tore_neu_g)) OR ((t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 1 AND spiel_fehlentscheidung.tore_neu_g < spiel_fehlentscheidung.tore_alt_g) OR (t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 1 AND spiel_fehlentscheidung.tore_alt_h < spiel_fehlentscheidung.tore_neu_h))),1,0)) AS abseits_erhalten'
+                ,'SUM(IF(spiel_fehlentscheidung.verein_id != '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 6 AND (((t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 6 AND tore_neu_h < spiel_fehlentscheidung.tore_alt_h)) OR ((t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 6 AND spiel_fehlentscheidung.tore_neu_g < spiel_fehlentscheidung.tore_alt_g))),1,0)) AS abseits_unberechtigt_erhalten'
+                ,'SUM(IF(spiel_fehlentscheidung.verein_id != '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 6 AND (((t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 6 AND spiel_fehlentscheidung.tore_alt_g < spiel_fehlentscheidung.tore_neu_g)) OR ((t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 6 AND spiel_fehlentscheidung.tore_alt_h < spiel_fehlentscheidung.tore_neu_h))),1,0)) AS abseits_verweigert_gegner'
+
+                ),
+                'condition' => 't.saison_id = :saison_id AND (t.verein_id_h = :verein_id OR t.verein_id_g = :verein_id) AND spiel_fehlentscheidung.anzeige_flag = 1',
+                'limit' => 1,
+                'params' => array(
+                        ':saison_id' => $saisonId,
+                        ':verein_id' => $verein_id
+                )     
+        ));
+        return $fehlentscheidungen;
+    }
+    
+    public function getFehlentscheidungenVereinBySaisonSpieltag($verein_id,$saisonId,$spieltag) {
+		$fehlentscheidungen = $this->with('spiel_fehlentscheidung')->find(array(
+                'select' => array('t.spiel_id','SUM(IF(spiel_fehlentscheidung.verein_id = '.$verein_id.' AND (((t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.tore_neu_g < spiel_fehlentscheidung.tore_alt_g) OR (t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.tore_alt_h < spiel_fehlentscheidung.tore_neu_h)) OR ((t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.tore_neu_h < spiel_fehlentscheidung.tore_alt_h) OR (t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.tore_alt_g < spiel_fehlentscheidung.tore_neu_g))),1,0)) AS verweigert','SUM(IF(spiel_fehlentscheidung.verein_id != '.$verein_id.' AND (((t.verein_id_h = '.$verein_id.' AND tore_neu_h < spiel_fehlentscheidung.tore_alt_h) OR (t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.tore_alt_g < spiel_fehlentscheidung.tore_neu_g)) OR ((t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.tore_neu_g < spiel_fehlentscheidung.tore_alt_g) OR (t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.tore_alt_h < spiel_fehlentscheidung.tore_neu_h))),1,0)) AS erhalten','SUM(IF(spiel_fehlentscheidung.verein_id = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 1 AND (((t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 1 AND spiel_fehlentscheidung.tore_neu_g < spiel_fehlentscheidung.tore_alt_g) OR (t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 1 AND spiel_fehlentscheidung.tore_alt_h < spiel_fehlentscheidung.tore_neu_h)) OR ((t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 1 AND spiel_fehlentscheidung.tore_neu_h < spiel_fehlentscheidung.tore_alt_h) OR (t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 1 AND spiel_fehlentscheidung.tore_alt_g < spiel_fehlentscheidung.tore_neu_g))),1,0)) AS elfer_verweigert','SUM(IF(spiel_fehlentscheidung.verein_id != '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 1 AND (((t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 1 AND tore_neu_h < spiel_fehlentscheidung.tore_alt_h) OR (t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 1 AND spiel_fehlentscheidung.tore_alt_g < spiel_fehlentscheidung.tore_neu_g)) OR ((t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 1 AND spiel_fehlentscheidung.tore_neu_g < spiel_fehlentscheidung.tore_alt_g) OR (t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 1 AND spiel_fehlentscheidung.tore_alt_h < spiel_fehlentscheidung.tore_neu_h))),1,0)) AS elfer_erhalten','SUM(IF(spiel_fehlentscheidung.verein_id = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 6 AND (((t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 6 AND spiel_fehlentscheidung.tore_neu_g < spiel_fehlentscheidung.tore_alt_g) OR (t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 6 AND spiel_fehlentscheidung.tore_alt_h < spiel_fehlentscheidung.tore_neu_h)) OR ((t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 6 AND spiel_fehlentscheidung.tore_neu_h < spiel_fehlentscheidung.tore_alt_h) OR (t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 6 AND spiel_fehlentscheidung.tore_alt_g < spiel_fehlentscheidung.tore_neu_g))),1,0)) AS abseits_verweigert','SUM(IF(spiel_fehlentscheidung.verein_id != '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 6 AND (((t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 6 AND tore_neu_h < spiel_fehlentscheidung.tore_alt_h) OR (t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 6 AND spiel_fehlentscheidung.tore_alt_g < spiel_fehlentscheidung.tore_neu_g)) OR ((t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 6 AND spiel_fehlentscheidung.tore_neu_g < spiel_fehlentscheidung.tore_alt_g) OR (t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 6 AND spiel_fehlentscheidung.tore_alt_h < spiel_fehlentscheidung.tore_neu_h))),1,0)) AS abseits_erhalten','SUM(IF(spiel_fehlentscheidung.verein_id != '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 6 AND (((t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 6 AND tore_neu_h < spiel_fehlentscheidung.tore_alt_h) OR (t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 6 AND spiel_fehlentscheidung.tore_alt_g < spiel_fehlentscheidung.tore_neu_g)) OR ((t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 6 AND spiel_fehlentscheidung.tore_neu_g < spiel_fehlentscheidung.tore_alt_g) OR (t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id = 6 AND spiel_fehlentscheidung.tore_alt_h < spiel_fehlentscheidung.tore_neu_h))),1,0)) AS elfer_erhalten','SUM(IF(spiel_fehlentscheidung.verein_id = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id NOT IN (1,6) AND (((t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id NOT IN (1,6) AND spiel_fehlentscheidung.tore_neu_g < spiel_fehlentscheidung.tore_alt_g) OR (t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id NOT IN (1,6) AND spiel_fehlentscheidung.tore_alt_h < spiel_fehlentscheidung.tore_neu_h)) OR ((t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id NOT IN (1,6) AND spiel_fehlentscheidung.tore_neu_h < spiel_fehlentscheidung.tore_alt_h) OR (t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id NOT IN (1,6) AND spiel_fehlentscheidung.tore_alt_g < spiel_fehlentscheidung.tore_neu_g))),1,0)) AS sonstige_verweigert','SUM(IF(spiel_fehlentscheidung.verein_id != '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id NOT IN (1,6) AND (((t.verein_id_h = '.$verein_id.' AND tore_neu_h < spiel_fehlentscheidung.tore_alt_h) OR (t.verein_id_h = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id NOT IN (1,6) AND spiel_fehlentscheidung.tore_alt_g < spiel_fehlentscheidung.tore_neu_g)) OR ((t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id NOT IN (1,6) AND spiel_fehlentscheidung.tore_neu_g < spiel_fehlentscheidung.tore_alt_g) OR (t.verein_id_g = '.$verein_id.' AND spiel_fehlentscheidung.kategorie_id NOT IN (1,6) AND spiel_fehlentscheidung.tore_alt_h < spiel_fehlentscheidung.tore_neu_h))),1,0)) AS sonstige_erhalten'),
+                'condition' => 't.spieltag = :spieltag AND t.saison_id = :saison_id AND (t.verein_id_h = :verein_id OR t.verein_id_g = :verein_id) AND spiel_fehlentscheidung.anzeige_flag = 1 AND spiel_fehlentscheidung.spiel_fehlentscheidung_id IS NOT NULL',
+                'limit' => 1,
+                'params' => array(
+                        ':saison_id' => $saisonId,
+                        ':verein_id' => $verein_id,
+                        ':spieltag' => $spieltag
+                )     
+        ));
+        return $fehlentscheidungen;
+    }
+
+    public function getSpielByVereinAndSpieltag($verein_id,$spieltag,$saison_id) {
+    	$spiel = Yii::app()->db->createCommand()
+            ->select('s.spiel_id,
+                    s.verein_id_h,
+                    s.verein_id_g,
+                    s.tore_h,
+                    s.tore_g,
+                    s.tore_hz_h,
+                    s.tore_hz_g,
+                    s.schiedsrichter_id,
+                    s.anstosszeit')
+            ->from('spiel s')
+            ->where('s.saison_id = :saison_id AND s.spieltag = :spieltag AND (s.verein_id_h = :verein_id OR s.verein_id_g = :verein_id)', array(':saison_id' => $saison_id,':spieltag' => $spieltag,':verein_id' => $verein_id))
+            ->queryRow();
+        return $spiel;
+    }
+    
+    public function getSpieleByVereinAndSaison($verein_id,$saison_id) {
+    	$spiel = Yii::app()->db->createCommand()
+            ->select('s.spiel_id,
+                    s.verein_id_h,
+                    s.verein_id_g,
+                    s.spieltag,
+                    s.tore_h,
+                    s.tore_g,
+                    s.tore_wt_h,
+                    s.tore_wt_g,
+                    s.tore_hz_h,
+                    s.tore_hz_g,
+                    s.schiedsrichter_id,
+                    s.anstosszeit')
+            ->from('spiel s')
+            ->where('s.ergebnis_eingetragen_flag = 1 AND s.saison_id = :saison_id AND (s.verein_id_h = :verein_id OR s.verein_id_g = :verein_id)', array(':saison_id' => $saison_id,':verein_id' => $verein_id))
+            ->query();
+        return $spiel;
+    }
+    
+    public function getTippverteilung() {
+        $tipps = $this->with('tipp')->find(array(
+                'select' => array(
+                        'ROUND(SUM(IF(tore_heim > tore_gast, 1, 0)) / count(*) * 100) AS tippsHeimsieg',
+                        'ROUND(SUM(IF(tore_heim < tore_gast, 1, 0)) / count(*) * 100) AS tippsAuswaertssieg',
+                        'ROUND(SUM(IF(tore_heim = tore_gast, 1, 0)) / count(*) * 100) AS tippsUnentschieden'),
+                'condition' => 't.spiel_id = '.$this->spiel_id
+        ));
+        return $tipps;
+    }
+    
+	public static function getTipps($spiel_id = 0, $user_id = 0) {
+        if($user_id == 0) {
+        	$user_id = Yii::app()->user->getId();
+        }
+        $tipps = Tipp::model()->find(array(
+                'select' => array(
+                        'tore_heim',
+                        'tipp_id',
+						'tore_gast',
+						'spiel_id',
+                        'punkte'),
+                'condition' => 'spiel_id = '.$spiel_id.' AND user_id = '.$user_id
+        ));
+        return $tipps;
+    }  
+    
+    
+    public function getTippPunkteSpieltagSaison($spieltag = 0, $user_id = 0, $saison_id = 89) {
+        if($user_id == 0) {
+        	$user_id = Yii::app()->user->getId();
+        }
+        $tipps = $this->with('tipp')->find(array(
+                'select' => array(
+                        'SUM(punkte) AS gesamtpunkte'),
+                'condition' => 't.spieltag = '.$spieltag.' AND user_id = '.$user_id.' AND t.saison_id = '.$saison_id
+        ));
+        return $tipps;
+    }
+    
+    public function getTagAuswertungSpieltag($spieltag) {
+    	$spiel = Yii::app()->db->createCommand()
+            ->select('DATE_FORMAT(DATE_ADD(anstosszeit,INTERVAL 2 DAY),"%Y-%m-%d 10:00:00") AS tag_auswertung')
+            ->from('spiel')
+            ->where('spieltag = :spieltag', array(':spieltag' => $spieltag))
+            ->order('anstosszeit DESC')
+            ->queryRow();
+        return $spiel;
+    }
+    
+	public function setRelevanteThemen() {
+        $this->relevanteThemen = Yii::app()->db->createCommand()
+        ->from('forum_23_thema')
+        ->where('zuordnung_id = :zuordnung_id AND zuordnung = :zuordnung',array(':zuordnung_id' => $this->spiel_id, ':zuordnung' => 'spiel'))
+        ->order('voting_flag DESC')
+        ->queryAll();
+    }   
+}

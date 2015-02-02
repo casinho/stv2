@@ -1,0 +1,150 @@
+<?php
+
+/**
+ * This is the model class for table "schirinoten".
+ *
+ * The followings are the available columns in table 'schirinoten':
+ * @property string $schirinoten_id
+ * @property string $spiel_id
+ * @property string $schiedsrichter_id
+ * @property string $user_id
+ * @property string $note
+ *
+ * The followings are the available model relations:
+ * @property Schiedsrichter $schiedsrichter
+ * @property User $user
+ */
+class Schirinoten extends CActiveRecord
+{
+	public $gesamtnote;
+	/**
+	 * Returns the static model of the specified AR class.
+	 * @param string $className active record class name.
+	 * @return Schirinoten the static model class
+	 */
+	public static function model($className=__CLASS__)
+	{
+		return parent::model($className);
+	}
+
+	/**
+	 * @return string the associated database table name
+	 */
+	public function tableName()
+	{
+		return 'schirinoten';
+	}
+
+	/**
+	 * @return array validation rules for model attributes.
+	 */
+	public function rules()
+	{
+		// NOTE: you should only define rules for those attributes that
+		// will receive user inputs.
+		return array(
+			array('spiel_id, schiedsrichter_id, user_id', 'required'),
+			array('spiel_id, schiedsrichter_id, user_id', 'length', 'max'=>10),
+			array('note', 'length', 'max'=>3),
+			// The following rule is used by search().
+			// Please remove those attributes that should not be searched.
+			array('spielernoten_id, spiel_id, schiedsrichter_id, user_id, note', 'safe', 'on'=>'search'),
+		);
+	}
+
+	/**
+	 * @return array relational rules.
+	 */
+	public function relations()
+	{
+		// NOTE: you may need to adjust the relation name and the related
+		// class name for the relations automatically generated below.
+		return array(
+			'spiel' => array(self::BELONGS_TO, 'Spiel', 'spiel_id'),
+			'schiedsrichter' => array(self::BELONGS_TO, 'Schiedsrichter', 'schiedsrichter_id'),
+			'user' => array(self::BELONGS_TO, 'User', 'user_id'),
+		);
+	}
+
+	/**
+	 * @return array customized attribute labels (name=>label)
+	 */
+	public function attributeLabels()
+	{
+		return array(
+			'spielernoten_id' => 'Spielernoten',
+			'spiel_id' => 'Spiel',
+			'schiedsrichter_id' => 'Schiedsrichter',
+			'user_id' => 'User',
+			'note' => 'Note',
+		);
+	}
+
+	/**
+	 * Retrieves a list of models based on the current search/filter conditions.
+	 * @return CActiveDataProvider the data provider that can return the models based on the search/filter conditions.
+	 */
+	public function search()
+	{
+		// Warning: Please modify the following code to remove attributes that
+		// should not be searched.
+
+		$criteria=new CDbCriteria;
+
+		$criteria->compare('spielernoten_id',$this->spielernoten_id,true);
+		$criteria->compare('spiel_id',$this->spiel_id,true);
+		$criteria->compare('schiedsichter_id',$this->spieler_id,true);
+		$criteria->compare('user_id',$this->user_id,true);
+		$criteria->compare('note',$this->note,true);
+
+		return new CActiveDataProvider($this, array(
+			'criteria'=>$criteria,
+		));
+	}
+	
+	public static function getNote($spiel_id = 0, $user_id = 0) {
+        if($user_id == 0) {
+        	$user_id = Yii::app()->user->getId();
+        }
+        $note = Schirinoten::model()->find(array(
+                'select' => '*',
+                'condition' => 'spiel_id = '.$spiel_id.' AND user_id = '.$user_id
+        ));
+        return $note;
+    }
+    
+    public static function countNoten($spieltag, $saisonId, $userId = 0) {
+        if($userId == 0) {
+        	$userId = Yii::app()->user->getId();
+        }
+        $n = Schirinoten::model()->with(array('spiel' => array('select' => false, 'joinType' => 'INNER JOIN', 'condition' => 'spiel.spieltag = :spieltag AND spiel.saison_id = :saisonId', 'params' => array(':spieltag' => $spieltag, ':saisonId' => $saisonId))))->count('user_id = :userId', array(':userId' => $userId));
+        return $n;
+    }
+    
+    public function getNoteGesamtBySchiedsrichterAndSpiel($spiel_id, $schiedsrichter_id) {
+        $note = $this->find(array(
+                'select' => array(
+                        'AVG(note) AS gesamtnote'),
+                'condition' => 'spiel_id = '.$spiel_id.' AND schiedsrichter_id = '.$schiedsrichter_id
+        ));
+        return $note;
+    }
+    
+    public function getNoteHeimBySchiedsrichterAndSpiel($spiel_id, $schiedsrichter_id, $verein_id) {
+        $note = $this->with('user')->find(array(
+                'select' => array(
+                        'AVG(note) AS gesamtnote'),
+                'condition' => 'user.verein_id = '.$verein_id.' AND spiel_id = '.$spiel_id.' AND schiedsrichter_id = '.$schiedsrichter_id
+        ));
+        return $note;
+    }
+    
+    public function getNoteGesamtBySchiedsrichterAndSaison($saison_id, $schiedsrichter_id) {
+        $note = $this->with('spiel')->find(array(
+                'select' => array(
+                        'AVG(note) AS gesamtnote'),
+                'condition' => 'spiel.saison_id = '.$saison_id.' AND t.schiedsrichter_id = '.$schiedsrichter_id
+        ));
+        return $note;
+    }
+}

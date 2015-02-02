@@ -1,0 +1,107 @@
+<?php
+class TipprundeCommand extends CConsoleCommand {
+	public function actionAuswertung($saison = false) {
+		if($saison === false) {
+			$saisonId 		= Saison::model()->getAktuelleSaisonId(Yii::app()->params['wettbewerbId']);
+		} else {
+			$saisonId 		= $saison;
+		}
+		$alleSpiele 	= Spiel::model()->getAlleSpieleBySaisonNichtAusgewertet($saisonId);
+		if(isset($alleSpiele) && count($alleSpiele) > 0) {
+			foreach($alleSpiele as $spiel) {
+				$alleTipps 	= Tipp::model()->getAlleTippsNachSpiel($spiel->spiel_id);
+				foreach($alleTipps as $tipp) {
+					$tore_diff_real = $spiel->tore_h - $spiel->tore_g;
+					$tore_diff_tipp = $tipp->tore_heim - $tipp->tore_gast;
+					if($spiel->tore_h == $tipp->tore_heim && $spiel->tore_g == $tipp->tore_gast) {
+						$tipp->punkte = 4;
+					} elseif($tore_diff_real == $tore_diff_tipp && $tipp->tore_heim != $tipp->tore_gast) {
+						$tipp->punkte = 3;
+					} elseif(($spiel->tore_h > $spiel->tore_g && $tipp->tore_heim > $tipp->tore_gast) || ($spiel->tore_h < $spiel->tore_g && $tipp->tore_heim < $tipp->tore_gast)) {
+						$tipp->punkte = 2;
+					} else {
+						$tipp->punkte = 0;
+					}
+					$tipp->save();
+				}
+				$spiel->tipps_aktualisiert_flag = 1;
+				$spiel->save();
+			}
+		}
+		$alleUser = Tipp::model()->getUserTippPunkteGesamtSaison($saisonId);
+		foreach($alleUser as $user) {						
+			$tipp_gesamt = TippGesamt::model()->find(array('condition' => 'saison_id = '.$saisonId.' AND user_id = '.$user['user_id']));
+			if(!is_object($tipp_gesamt)) {
+				$tipp_gesamt = new TippGesamt;
+				$tipp_gesamt->user_id 	= $user['user_id'];
+				$tipp_gesamt->saison_id = $saisonId;
+			}
+			$tipp_gesamt->punkte 	= $user['gesamtpunkte'];
+			$tipp_gesamt->save();
+		}
+	}
+
+
+	public function actionAuswertungKorrektur($saison = false) {
+		if($saison === false) {
+			$saisonId 		= Saison::model()->getAktuelleSaisonId(Yii::app()->params['wettbewerbId']);
+		} else {
+			$saisonId 		= $saison;
+		}
+		$alleSpiele 	= Spiel::model()->getAlleSpieleBySaisonKorrigiertAusgewertet($saisonId);
+		foreach($alleSpiele as $spiel) {
+			$alleTipps 	= Tipp::model()->getAlleTippsNachSpiel($spiel->spiel_id);
+			foreach($alleTipps as $tipp) {
+				$tore_diff_tipp = $tipp->tore_heim - $tipp->tore_gast;
+				$tore_diff_wt = $spiel->tore_wt_h - $spiel->tore_wt_g;
+				if($spiel->tore_wt_h == $tipp->tore_heim && $spiel->tore_wt_g == $tipp->tore_gast) {
+					$tipp->punkte_wt = 4;
+				} elseif($tore_diff_wt == $tore_diff_tipp && $tipp->tore_heim != $tipp->tore_gast) {
+					$tipp->punkte_wt = 3;
+				} elseif(($spiel->tore_wt_h > $spiel->tore_wt_g && $tipp->tore_heim > $tipp->tore_gast) || ($spiel->tore_wt_h < $spiel->tore_wt_g && $tipp->tore_heim < $tipp->tore_gast)) {
+					$tipp->punkte_wt = 2;
+				} else {
+					$tipp->punkte_wt = 0;
+				}
+
+				$tipp->save();
+			}
+			$spiel->tipps_korrigiert_flag = 1;
+			$spiel->save();
+		}
+		$alleUser = Tipp::model()->getUserTippPunkteGesamtSaison($saisonId);
+		foreach($alleUser as $user) {							
+			$tipp_gesamt = TippGesamt::model()->find(array('condition' => 'saison_id = '.$saisonId.' AND user_id = '.$user['user_id']));
+			if(!is_object($tipp_gesamt)) {
+				$tipp_gesamt = new TippGesamt;
+				$tipp_gesamt->user_id 	= $user['user_id'];
+				$tipp_gesamt->saison_id = $saisonId;
+			}
+			$tipp_gesamt->punkte_wt = $user['gesamtpunkte_wt'];
+			$tipp_gesamt->save();
+		}
+	}
+	
+	
+	public function actionErinnerung() {
+		$saison_id 		= Saison::model()->getAktuelleSaisonId(Yii::app()->params['wettbewerbId']);
+		$spieltag 		= Spiel::model()->getNummerFolgenderSpieltag($saison_id);
+		$alleUser 		= User::model()->getUserTipperinnerung();
+		foreach($alleUser as $user) {	
+			$anzahl_tipps = Tipp::model()->countTipps($saison_id,$spieltag,$user['user_id']);
+			if($anzahl_tipps < 9) {
+				try {
+					$message = new YiiMailMessage('Wahretabelle.de: Tipprundenerinnerung'); 
+					$message->view = 'tipperinnerung';
+					$message->setBody(array('userModel'=>$user, 'tipps' => $anzahl_tipps, 'spieltag' => $spieltag), 'text/html'); 
+					$message->addTo($user['user_mail']); 
+					$message->from = Yii::app()->params['systemMail'];
+					Yii::app()->mail->send($message);
+				} catch(Exception $e) {
+					echo $e->getMessage();
+				}
+			}
+		}
+	}
+}
+?>

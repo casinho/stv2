@@ -1,0 +1,128 @@
+<?php
+class RBACCommand extends CConsoleCommand {
+	public function actionInit() {
+		$auth = Yii::app()->authManager;
+		
+		// Alle Rollen und Zuweisungen loeschen
+		$auth->clearAll();
+		
+		// Einzelne Operationen erstellen
+		// Globale Rechte
+		$auth->createOperation('global_schirinoten_vote', 'darf ueber schirinoten abstimmen');
+		
+		// Admin-Center
+		$auth->createOperation('center_news_create', 'darf news erstellen');
+		
+		// Profil
+		$auth->createOperation('profil_user_update', 'darf profile bearbeiten');
+		
+		// Spezielle Profil-Berechtigungen
+		// Darf eigenes Profil bearbeiten wenn $bizRule === true
+		$bizRule = 'return Yii::app()->user->id == $params["user"]->user_id;';
+		$task = $auth->createTask('profil_own_user_update', 'darf eigenes Profil bearbeiten', $bizRule);
+		$task->addChild('profil_user_update');
+		
+		// Forum
+		$auth->createOperation('forum_post_read', 'darf posts lesen');
+		$auth->createOperation('forum_post_create', 'darf posts erstellen');
+		$auth->createOperation('forum_post_update', 'darf posts aendern');
+		$auth->createOperation('forum_post_delete', 'darf posts loeschen');
+		
+		// Spezielle Foren-Berechtigung
+		// Darf eigene posts aendern, wenn $bizRule === true
+		$bizRule = 'return Yii::app()->user->id == $params["post"]->user_id;';
+		$task = $auth->createTask('forum_own_post_update', 'darf eigenen post aendern', $bizRule);
+		$task->addChild('forum_post_update');
+
+		$bizRule = 'return Yii::app()->user->id == $params["post"]["user_id"];';
+		$task = $auth->createTask('forum_own_post_update_arr', 'darf eigenen post aendern', $bizRule);
+		$task->addChild('forum_post_update');
+		
+		
+		// Erstellen der Rollen und zuweisen der Operationen und Tasks		
+	
+		// Es gibt in den alten WT-Daten keinen echten nutzen für das "control" (neu: kontroll_flag) flag.
+		// Jeder nutzer der dieses hatte, hatte ebenso ein KT oder Chef-Flag.
+		// Deshalb gibt es nun diese Rolle nicht!
+		//$role = $auth->createRole('kontroloer');
+		
+		$role = $auth->createRole('gast');
+		$role->addChild('forum_post_read');
+		
+		$bizRule = 'return !Yii::app()->user->isGuest;';
+		$role = $auth->createRole('authentifiziert', 'authentifizierter benutzer', $bizRule);
+		$role->addChild('gast');
+		$role->addChild('profil_own_user_update');
+		$role->addChild('forum_post_create');
+		$role->addChild('forum_own_post_update');
+		$role->addChild('forum_own_post_update_arr');
+		$role->addChild('global_schirinoten_vote');
+		
+		$role = $auth->createRole('kt-mitglied');
+		$role->addChild('authentifiziert');
+		
+		$role = $auth->createRole('kt-admin');
+		$role->addChild('kt-mitglied');
+		
+		$role = $auth->createRole('admin');
+		$role->addChild('kt-admin');
+		
+		$role = $auth->createRole('super-admin');
+		$role->addChild('center_news_create');
+		$role->addChild('admin');
+		
+		// Suchen aller KTMitglieds-User
+		$ktMitgliedUser = User::model()->findAll(array(
+			'select' => 'user_id',
+			'condition' => 'kompetenz_flag = :kompetenz_flag',
+			'params' => array(
+				':kompetenz_flag' => 5,
+			),
+		));
+		
+		// Suchen aller KTAdmin-User
+		$ktAdminUser = User::model()->findAll(array(
+			'select' => 'user_id',
+			'condition' => 'kompetenz_flag = :kompetenz_flag',
+			'params' => array(
+				':kompetenz_flag' => 9,
+			),
+		));
+		
+		// Suchen aller Admin-User
+		$adminUser = User::model()->findAll(array(
+			'select' => 'user_id',
+			'condition' => 'kontroll_flag = :kontroll_flag',
+			'params' => array(
+				':kontroll_flag' => 1,
+			),
+		));
+		
+		// Suchen aller Admin-User
+		$superAdminUser = User::model()->findAll(array(
+			'select' => 'user_id',
+			'condition' => 'chef_flag = :chef_flag',
+			'params' => array(
+				':chef_flag' => 1,
+			),
+		));
+		
+		// Zuweisen der Admin-User
+		foreach($ktMitgliedUser as $user) {
+			$auth->assign('kt-mitglied', $user->user_id);
+		}
+		
+		foreach($ktAdminUser as $user) {
+			$auth->assign('kt-admin', $user->user_id);
+		}
+		
+		foreach($adminUser as $user) {
+			$auth->assign('admin', $user->user_id);
+		}
+		
+		foreach($superAdminUser as $user) {
+			$auth->assign('super-admin', $user->user_id);
+		}
+	}
+}
+?>

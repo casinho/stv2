@@ -1,0 +1,371 @@
+<?php
+
+/**
+ * This is the model class for table "spiel_fehlentscheidung".
+ *
+ * The followings are the available columns in table 'spiel_fehlentscheidung':
+ * @property string $spiel_fehlentscheidung_id
+ * @property integer $spiel_fehlentscheidung_id_alt
+ * @property string $spiel_id
+ * @property string $verein_id
+ * @property integer $anzeige_flag
+ * @property integer $kategorie_id
+ * @property integer $daumen
+ * @property integer $tore_alt_h
+ * @property integer $tore_alt_g
+ * @property integer $tore_neu_h
+ * @property integer $tore_neu_g
+ * @property string $beschreibung
+ * @property string $thema_id
+ * @property integer $kein_thema
+ *
+ * The followings are the available model relations:
+ * @property Spiel $spiel
+ * @property Verein $verein
+ * @property SpielFehlentscheidung2quellen[] $spielFehlentscheidung2quellens
+ */
+class SpielFehlentscheidung extends CActiveRecord {
+
+    /**
+     * Returns the static model of the specified AR class.
+     *
+     * @param string $className
+     *            active record class name.
+     * @return SpielFehlentscheidung the static model class
+     */
+    public $fehlentscheidungen;
+    public $strittige_szenen;
+    public $elfer_erhalten;
+    public $elfer_verweigert;
+    public $sonstige_erhalten;
+    public $sonstige_verweigert;
+    public $abseits_erhalten;
+    public $abseits_verweigert;
+    public $erhalten;
+    public $verweigert;
+    public $anzahl;
+    public $schiedsrichter_id;
+    public $gegner_verein_id;
+    public $fehlentscheidungen_optionen =  array('empty' => '---', 1 => 'keine Fehlentscheidung', 2 => 'Fehlentscheindung', 3 => 'Kann mich nicht entscheiden', 4 => 'unbekannt/Szene nicht gesehen');
+    public $gesamt;   
+    public $team;
+    public $verein_h;
+    public $verein_g; 
+    
+    public static function model($className = __CLASS__) {
+        return parent::model($className);
+    }
+
+    /**
+     *
+     * @return string the associated database table name
+     */
+    public function tableName() {
+        return 'spiel_fehlentscheidung';
+    }
+
+    /**
+     *
+     * @return array validation rules for model attributes.
+     */
+    public function rules() {
+        // NOTE: you should only define rules for those attributes that
+        // will receive user inputs.
+        return array(
+			array('spiel_id, verein_id, kategorie_id, thema_id, beschreibung', 'required'),
+			array('spiel_fehlentscheidung_id, spiel_fehlentscheidung_id_alt, anzeige_flag, kategorie_id, daumen, tore_alt_h, tore_alt_g, tore_neu_h, tore_neu_g, kein_thema', 'numerical', 'integerOnly'=>true),
+			array('spiel_id, verein_id, thema_id', 'length', 'max'=>10),
+			array('beschreibung', 'safe'),
+			// The following rule is used by search().
+			// Please remove those attributes that should not be searched.
+			array('spiel_fehlentscheidung_id, spiel_fehlentscheidung_id_alt, spiel_id, verein_id, anzeige_flag, kategorie_id, daumen, tore_alt_h, tore_alt_g, tore_neu_h, tore_neu_g, beschreibung, thema_id, kein_thema', 'safe', 'on'=>'search'),
+		);
+    }
+
+    /**
+     *
+     * @return array relational rules.
+     */
+    public function relations() {
+        // NOTE: you may need to adjust the relation name and the related
+        // class name for the relations automatically generated below.
+        return array(
+                'spiel' => array(
+                        self::BELONGS_TO,
+						'Spiel',
+                        'spiel_id',
+                        'joinType' => 'LEFT JOIN'
+                ),
+                'verein' => array(
+                        self::BELONGS_TO,
+                        'Verein',
+                        'verein_id'
+                ),
+                'thema' => array(
+                        self::BELONGS_TO,
+                        'Thema',
+                        'thema_id'
+                ),
+                'quellen' => array(
+                        self::MANY_MANY,
+                        'Quellen',
+                        'spiel_fehlentscheidung2quellen(spiel_fehlentscheidung_id, quellen_id)'
+                ),
+                'fehlentscheidung_kategorie' => array(
+                        self::HAS_ONE,
+                        'FehlentscheidungKategorie',
+                        'kategorie_id'
+                )
+        );
+    }
+
+    /**
+     *
+     * @return array customized attribute labels (name=>label)
+     */
+    public function attributeLabels() {
+        return array(
+                'spiel_fehlentscheidung_id' => 'Spiel Fehlentscheidung',
+                'spiel_id' => 'Spiel',
+                'verein_id' => 'Verein',
+                'anzeige_flag' => 'Anzeige Flag',
+        		'kategorie_id' => 'Kategorie',
+                'daumen' => 'Daumen',
+                'tore_alt_h' => 'Tore Alt H',
+                'tore_alt_g' => 'Tore Alt G',
+                'tore_neu_h' => 'Tore Neu H',
+                'tore_neu_g' => 'Tore Neu G',
+                'beschreibung' => 'beschreibung',
+                'thema_id' => 'Thema'
+        );
+    }
+
+    /**
+     * Retrieves a list of models based on the current search/filter conditions.
+     *
+     * @return CActiveDataProvider the data provider that can return the models
+     *         based on the search/filter conditions.
+     */
+    public function search() {
+        // Warning: Please modify the following code to remove attributes that
+        // should not be searched.
+        $criteria = new CDbCriteria();
+        
+        $criteria->compare('spiel_fehlentscheidung_id', $this->spiel_fehlentscheidung_id, true);
+        $criteria->compare('spiel_id', $this->spiel_id, true);
+        $criteria->compare('verein_id', $this->verein_id, true);
+        $criteria->compare('anzeige_flag', $this->anzeige_flag);
+        $criteria->compare('daumen', $this->daumen);
+        $criteria->compare('tore_alt_h', $this->tore_alt_h);
+        $criteria->compare('tore_alt_g', $this->tore_alt_g);
+        $criteria->compare('tore_neu_h', $this->tore_neu_h);
+        $criteria->compare('tore_neu_g', $this->tore_neu_g);
+        $criteria->compare('beschreibung', $this->beschreibung, true);
+        $criteria->compare('thema_id', $this->thema_id, true);
+        
+        return new CActiveDataProvider($this, array(
+                'criteria' => $criteria
+        ));
+    }
+
+	public static function getAlleFehlentscheidungenBySpiel($spielId) {
+		return self::model()->findAll(array(
+			'condition' => 'spiel_id = :spiel_id',
+			'params' => array(
+				':spiel_id' => $spielId,
+			),
+		));
+	}
+	
+    public function getAnzahlFehlentscheidungenBySpiel($spielId) {
+        $fehlentscheidungen = $this->find(array(
+                'select' => 'COUNT(*) AS fehlentscheidungen',
+                'condition' => 'spiel_id = :spiel_id AND daumen = 2',
+                'limit' => 1,
+                'params' => array(
+                        ':spiel_id' => $spielId
+                )
+        ));
+        return $fehlentscheidungen;
+    }
+    
+    public function getAnzahlStrittigeSzenenBySpiel($spielId) {
+        $strittigeSzenen = $this->find(array(
+                'select' => 'COUNT(*) AS strittige_szenen',
+                'condition' => 'spiel_id = :spiel_id',
+                'limit' => 1,
+                'params' => array(
+                        ':spiel_id' => $spielId
+                )
+        ));
+        return $strittigeSzenen;
+    }
+    
+    public static function getStrittigeSzenenVorhandenBySpiel($spielId) {
+    	$result = self::model()->getAnzahlStrittigeSzenenBySpiel($spielId);
+
+    	return ($result->strittige_szenen > 0) ? true : false;
+    }
+    
+    public function getAnzahlFehlentscheidungenBySchiedsricherSaison($schiedsrichterId, $saisonId) {
+        $fehlentscheidungen = $this->with('spiel')->find(array(
+                'select' => 'COUNT(*) AS fehlentscheidungen',
+                'condition' => 'saison_id = :saison_id AND schiedsrichter_id = :schiedsrichter_id AND daumen = 2',
+                'limit' => 1,
+                'params' => array(
+                        ':saison_id' => $saisonId,
+                        ':schiedsrichter_id' => $schiedsrichterId
+                )
+        ));
+        return $fehlentscheidungen;
+    }
+    
+    public function getAnzahlRichtigeEntscheidungenBySchiedsricherSaison($schiedsrichterId, $saisonId) {
+        $fehlentscheidungen = $this->with('spiel')->find(array(
+                'select' => 'COUNT(*) AS fehlentscheidungen',
+                'condition' => 'saison_id = :saison_id AND schiedsrichter_id = :schiedsrichter_id AND daumen = 1',
+                'limit' => 1,
+                'params' => array(
+                        ':saison_id' => $saisonId,
+                        ':schiedsrichter_id' => $schiedsrichterId
+                )
+        ));
+        return $fehlentscheidungen;
+    }
+    
+    public function getAnzahlStrittigeSzenenBySchiedsricherSaison($schiedsrichterId, $saisonId) {
+        $strittigeSzenen = $this->with('spiel')->find(array(
+                'select' => 'COUNT(*) AS strittige_szenen',
+                'condition' => 'saison_id = :saison_id AND schiedsrichter_id = :schiedsrichter_id',
+                'limit' => 1,
+                'params' => array(
+                        ':saison_id' => $saisonId,
+                        ':schiedsrichter_id' => $schiedsrichterId
+                )
+        ));
+        return $strittigeSzenen;
+    }
+    
+    
+    public function getStrittigeSzenenByBegegnung($spiel_id) {
+        $strittigeSzenen = Yii::app()->db->createCommand()
+            ->select('s.spiel_id,
+                    s.verein_id_h,
+                    s.verein_id_g,
+                    s.tore_h,
+                    s.tore_g,
+                    s.tore_wt_h,
+                    s.tore_wt_g,
+                    f.spiel_fehlentscheidung_id,
+                    f.anzeige_flag,
+                    f.kategorie_id,
+                    f.tore_alt_h,
+                    f.tore_alt_g,
+                    f.tore_neu_h,
+                    f.tore_neu_g,
+                    f.daumen,
+                    f.beschreibung,
+                    f.verein_id AS rel_verein_id,
+                    t.user_nick,
+                    t.user_id,
+                    t.thema_id,
+            		t.titel,
+            		t.voting_flag,
+            		t.closed_flag,
+            		k.kategorie')
+            ->from('spiel s')
+            ->join('forum_23_thema t', 't.zuordnung_id = s.spiel_id AND t.voting_flag IN (1,2)')
+            ->leftJoin('spiel_fehlentscheidung f', 'f.thema_id = t.thema_id')
+            ->leftJoin('fehlentscheidung_kategorie k', 'k.kategorie_id = f.kategorie_id')
+            ->where('s.spiel_id = :spiel_id', array(':spiel_id' => $spiel_id))
+            ->group('t.thema_id')
+            ->order('t.erstelltzeit ASC')
+            ->queryAll();
+   
+		foreach($strittigeSzenen as $key => &$szene) {
+            $szene['verein_h'] 	= Verein::model()->findByPk($szene['verein_id_h']);
+            $szene['verein_g'] 	= Verein::model()->findByPk($szene['verein_id_g']);
+            $userVotes			= array();
+            if(!empty($szene['spiel_fehlentscheidung_id'])) {
+  				
+            	$ktVotes = $this->getKTVotesFehlentscheidung($szene['spiel_fehlentscheidung_id']);
+	            $szene = array_merge($szene, $ktVotes);
+	            
+	            $ktVotesDetail = Yii::app()->db->createCommand()
+	                ->select('k.kt2voting_id,
+	                		k.option_id,
+	                		k.beschreibung,
+	                		u.user_id,
+	                		u.user_nick')
+	                ->from('user u')
+	                ->leftJoin('kt2voting k', 'k.user_id = u.user_id AND k.spiel_fehlentscheidung_id = :spiel_fehlentscheidung_id', array(':spiel_fehlentscheidung_id' => $szene['spiel_fehlentscheidung_id']))
+	                ->where('u.kompetenz_flag = 5')
+	                ->order('u.user_nick ASC')
+	                ->queryAll();    
+	            if(!empty($ktVotesDetail)) {
+	            	$szene['votesDetail'] = $ktVotesDetail;
+	            }
+            }
+
+            $startPost = Yii::app()->db->createCommand()
+            	->select('nachricht')
+            	->from('forum_23_beitrag')
+            	->where('thema_id = :thema_id', array(':thema_id' => $szene['thema_id']))
+            	->order('erstelltzeit ASC')
+            	->queryRow();
+			
+            if(!empty($startPost)) {
+            	$szene = array_merge($szene, $startPost);
+			}
+
+			$zitate = Yii::app()->db->createCommand()
+				->select('q.quellen_id,
+						q.quelle')
+				->from('quellen q')
+				->order('q.quellen_id ASC')
+				->queryAll();
+			
+			foreach($zitate as $key => $z) {
+				$szene['quellen'][$key] = $z;
+				$szene['quellen'][$key]['beschreibung'] = Yii::app()->db->createCommand()
+				->select('beschreibung')
+				->from('spiel_fehlentscheidung2quellen')
+				->where('spiel_fehlentscheidung_id = :spiel_fehlentscheidung_id AND quellen_id = :quellen_id', array(':spiel_fehlentscheidung_id' => $szene['spiel_fehlentscheidung_id'], ':quellen_id' => $z['quellen_id']))
+				->queryRow();
+			} 
+        }
+
+        return $strittigeSzenen;
+    }
+    
+    public function getKTVotesFehlentscheidung($spiel_fehlentscheidung_id) {
+		$ktVotes = Yii::app()->db->createCommand()
+                ->select('SUM(IF(k.option_id = 1, 1, 0)) AS kt_daumen_hoch,
+                        SUM(IF(k.option_id = 2, 1, 0)) AS kt_daumen_runter,
+                        SUM(IF(k.option_id = 3, 1, 0)) AS kt_daumen_neutral,
+                        SUM(k.option_id) AS kt_daumen_gesamt')
+                ->from('kt2voting k')
+                ->where('k.spiel_fehlentscheidung_id = :spiel_fehlentscheidung_id', array(':spiel_fehlentscheidung_id' => $spiel_fehlentscheidung_id))
+                ->queryRow();
+		return $ktVotes;
+    }
+    
+   	public function getTeilnehmerAbstimmungKTTeam($thema_id) {
+    	$ktVotesDetail = Yii::app()->db->createCommand()
+                ->select('k.kt2voting_id,
+                k.option_id,
+                k.beschreibung,
+                u.user_id,
+                u.avatar_kt,
+                u.verein_id,
+                u.user_nick')
+                ->from('forum_23_thema t')
+                ->join('spiel_fehlentscheidung f', 'f.thema_id = t.thema_id')
+                ->join('kt2voting k', 'k.spiel_fehlentscheidung_id = f.spiel_fehlentscheidung_id')
+                ->join('user u', 'u.user_id = k.user_id')
+                ->where('t.thema_id = :thema_id',array(':thema_id' => $thema_id))
+                ->order('u.user_nick ASC')
+                ->queryAll();    
+    	return $ktVotesDetail;
+    }	
+}

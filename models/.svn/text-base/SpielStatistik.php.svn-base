@@ -1,0 +1,403 @@
+<?php
+
+/**
+ * This is the model class for table "spiel_statistik".
+ *
+ * The followings are the available columns in table 'spiel_statistik':
+ * @property string $spiel_statistik_id
+ * @property string $spiel_id
+ * @property string $verein_id
+ * @property integer $spielort_flag
+ * @property integer $chancen
+ * @property integer $ecken
+ * @property integer $flanken
+ * @property integer $zweikaempfe
+ * @property integer $abseits
+ * @property integer $fouls
+ * @property integer $schuesse_aufs_tor
+ * @property integer $ballbesitz
+ * @property integer $gelb
+ * @property integer $gelbrot
+ * @property integer $rot
+ */
+class SpielStatistik extends CActiveRecord
+{
+	public $gelbe;
+	public $rote;
+	public $gelbrote;
+	public $karten;
+	public $punkte;
+	public $vereinsname;
+	public $rang;
+	public $fouls;
+	public $fouls_erhalten;
+	public $abseits;
+	public $abseits_erhalten;
+	public $schuesse;
+	public $chancen;
+	public $schuesse_zugelassen;
+	public $chancen_zugelassen;
+	public $tore;
+	public $schuesse_pro_tor;
+	public $gegentore;
+	/**
+	 * Returns the static model of the specified AR class.
+	 * @param string $className active record class name.
+	 * @return SpielStatistik the static model class
+	 */
+	public static function model($className=__CLASS__)
+	{
+		return parent::model($className);
+	}
+
+	/**
+	 * @return string the associated database table name
+	 */
+	public function tableName()
+	{
+		return 'spiel_statistik';
+	}
+
+	/**
+	 * @return array validation rules for model attributes.
+	 */
+	public function rules()
+	{
+		// NOTE: you should only define rules for those attributes that
+		// will receive user inputs.
+		return array(
+			array('spiel_id, verein_id, spielort_flag, chancen, ecken, flanken, zweikaempfe, abseits, fouls, schuesse_aufs_tor, ballbesitz, gelb, gelbrot, rot', 'required'),
+			array('spielort_flag, chancen, ecken, flanken, zweikaempfe, abseits, fouls, schuesse_aufs_tor, ballbesitz, gelb, gelbrot, rot', 'numerical', 'integerOnly'=>true),
+			array('spiel_id, verein_id', 'length', 'max'=>10),
+			// The following rule is used by search().
+			// Please remove those attributes that should not be searched.
+			array('spiel_statistik_id, spiel_id, verein_id, spielort_flag, chancen, ecken, flanken, zweikaempfe, abseits, fouls, schuesse_aufs_tor, ballbesitz, gelb, gelbrot, rot', 'safe', 'on'=>'search'),
+		);
+	}
+
+	/**
+	 * @return array relational rules.
+	 */
+	public function relations()
+	{
+		// NOTE: you may need to adjust the relation name and the related
+		// class name for the relations automatically generated below.
+		return array(
+			'verein' => array(self::BELONGS_TO, 'Verein', 'verein_id','joinType' => 'INNER JOIN'),
+			'spiel' => array(self::HAS_ONE, 'Spiel', array('spiel_id' => 'spiel_id'),'on' => '(t.verein_id = spiel.verein_id_h OR t.verein_id = spiel.verein_id_g)','joinType' => 'INNER JOIN'),
+			'spiel_statistik_gegner' => array(self::HAS_ONE, 'Spielstatistik', array('spiel_id' => 'spiel_id'),'on' => 't.verein_id != spiel_statistik_gegner.verein_id','joinType' => 'INNER JOIN'),
+			'verein_gegner' => array(self::BELONGS_TO, 'Verein', array('verein_id' => 'verein_id'),'joinType' => 'INNER JOIN'),
+		);
+	}
+
+	/**
+	 * @return array customized attribute labels (name=>label)
+	 */
+	public function attributeLabels()
+	{
+		return array(
+			'spiel_statistik_id' => 'Spiel Statistik',
+			'spiel_id' => 'Spiel',
+			'verein_id' => 'Verein',
+			'spielort_flag' => 'Spielort Flag',
+			'chancen' => 'Chancen',
+			'ecken' => 'Ecken',
+			'flanken' => 'Flanken',
+			'zweikaempfe' => 'Zweikaempfe',
+			'abseits' => 'Abseits',
+			'fouls' => 'Fouls',
+			'schuesse_aufs_tor' => 'Schuesse Aufs Tor',
+			'ballbesitz' => 'Ballbesitz',
+			'gelb' => 'Gelb',
+			'gelbrot' => 'Gelbrot',
+			'rot' => 'Rot',
+		);
+	}
+
+	/**
+	 * Retrieves a list of models based on the current search/filter conditions.
+	 * @return CActiveDataProvider the data provider that can return the models based on the search/filter conditions.
+	 */
+	public function search()
+	{
+		// Warning: Please modify the following code to remove attributes that
+		// should not be searched.
+
+		$criteria=new CDbCriteria;
+
+		$criteria->compare('spiel_statistik_id',$this->spiel_statistik_id,true);
+		$criteria->compare('spiel_id',$this->spiel_id,true);
+		$criteria->compare('verein_id',$this->verein_id,true);
+		$criteria->compare('spielort_flag',$this->spielort_flag);
+		$criteria->compare('chancen',$this->chancen);
+		$criteria->compare('ecken',$this->ecken);
+		$criteria->compare('flanken',$this->flanken);
+		$criteria->compare('zweikaempfe',$this->zweikaempfe);
+		$criteria->compare('abseits',$this->abseits);
+		$criteria->compare('fouls',$this->fouls);
+		$criteria->compare('schuesse_aufs_tor',$this->schuesse_aufs_tor);
+		$criteria->compare('ballbesitz',$this->ballbesitz);
+		$criteria->compare('gelb',$this->gelb);
+		$criteria->compare('gelbrot',$this->gelbrot);
+		$criteria->compare('rot',$this->rot);
+
+		return new CActiveDataProvider($this, array(
+			'criteria'=>$criteria,
+		));
+	}
+
+	public static function getAntiFairplayCriteria($saisonId,$nummerGewaehlterSpieltag,$nummerAktuellerSpieltag) {
+		$criteria = new CDbCriteria;
+	 	$criteria->with = array('verein', 'spiel', 'spiel_statistik_gegner');
+	 	$criteria->select = 'verein.* ,SUM(t.gelb) AS gelbe, SUM(t.gelbrot) AS gelbrote, SUM(t.rot) AS rote, SUM(t.gelb)+(SUM(t.gelbrot)*3)+(SUM(t.rot)*5) AS punkte, SUM(t.gelb)+SUM(t.gelbrot)+SUM(t.rot) AS karten';
+	 	if($nummerGewaehlterSpieltag > $nummerAktuellerSpieltag) {
+	 		$criteria->condition = 'spiel.saison_id = :saison_id AND spieltag <= :spieltag';
+	 	} else {
+	 		$criteria->condition = 'spiel.saison_id = :saison_id AND spieltag = :spieltag';
+	 	}
+	 	$criteria->params = array(
+			':saison_id' => $saisonId,
+			':spieltag' => $nummerGewaehlterSpieltag
+		);
+		$criteria->group = 'verein.verein_id';
+
+		return $criteria;
+	}
+	
+	public static function getAntiFairplaySort() {
+		$sort = new CSort;
+		$sort->defaultOrder = 'punkte DESC';
+		$sort->attributes = array(
+			'wappen' => array(
+				'asc'=>'verein.vereinsname',
+				'desc'=>'verein.vereinsname DESC',
+			),
+			'gelbe' => array(
+				'asc'=>'gelbe',
+				'desc'=>'gelbe DESC',
+			),
+			'gelbrote' => array(
+				'asc'=>'gelbrote',
+				'desc'=>'gelbrote DESC',
+			),                     
+			'rote' => array(
+				'asc'=>'rote',
+				'desc'=>'rote DESC',
+			),
+			'karten' => array(
+				'asc'=>'karten',
+				'desc'=>'karten DESC',
+			),
+			'punkte' => array(
+				'asc'=>'punkte',
+				'desc'=>'punkte DESC',
+			),
+			'vereinsname' => array(
+				'asc'=>'verein.vereinsname',
+				'desc'=>'verein.vereinsname DESC',
+			)
+		);
+		
+		return $sort;
+	}
+	
+	public function getAntiFairplay($saisonId,$nummerGewaehlterSpieltag,$nummerAktuellerSpieltag) {
+		return SpielStatistik::model()->findAll(self::getAntiFairplayCriteria($saisonId,$nummerGewaehlterSpieltag,$nummerAktuellerSpieltag));
+    }
+
+    public static function getTreterCriteria($saisonId,$nummerGewaehlterSpieltag,$nummerAktuellerSpieltag) {
+		$criteria = new CDbCriteria;
+	 	$criteria->with = array('verein', 'spiel', 'spiel_statistik_gegner');
+	 	$criteria->select = 'verein.*,SUM(t.fouls) AS fouls,SUM(spiel_statistik_gegner.fouls) AS fouls_erhalten';
+	 	if($nummerGewaehlterSpieltag > $nummerAktuellerSpieltag) {
+	 		$criteria->condition = 'spiel.saison_id = :saison_id AND spieltag <= :spieltag';
+	 	} else {
+	 		$criteria->condition = 'spiel.saison_id = :saison_id AND spieltag = :spieltag';
+	 	}
+	 	$criteria->params = array(
+			':saison_id' => $saisonId,
+			':spieltag' => $nummerGewaehlterSpieltag
+		);
+		$criteria->group = 'verein.verein_id';
+
+		return $criteria;
+	}
+	
+	public static function getTreterSort() {
+		$sort = new CSort;
+		$sort->defaultOrder = 'fouls DESC';
+		$sort->attributes = array(
+			'wappen' => array(
+				'asc'=>'verein.vereinsname',
+				'desc'=>'verein.vereinsname DESC',
+			),
+			'fouls' => array(
+				'asc'=>'fouls',
+				'desc'=>'fouls DESC',
+			),
+			'fouls_erhalten' => array(
+				'asc'=>'fouls_erhalten',
+				'desc'=>'fouls_erhalten DESC',
+			),
+			'vereinsname' => array(
+				'asc'=>'verein.vereinsname',
+				'desc'=>'verein.vereinsname DESC',
+			)
+		);
+		
+		return $sort;
+	}
+	
+	public function getTreter($saisonId,$nummerGewaehlterSpieltag,$nummerAktuellerSpieltag) {		
+		return SpielStatistik::model()->findAll(self::getTreterCriteria($saisonId,$nummerGewaehlterSpieltag,$nummerAktuellerSpieltag));
+    }
+    
+    public static function getAbseitsCriteria($saisonId,$nummerGewaehlterSpieltag,$nummerAktuellerSpieltag) {
+		$criteria = new CDbCriteria;
+	 	$criteria->with = array('verein', 'spiel', 'spiel_statistik_gegner');
+	 	$criteria->select = 'verein.*,SUM(t.abseits) AS abseits,SUM(spiel_statistik_gegner.abseits) AS abseits_erhalten';
+	 	if($nummerGewaehlterSpieltag > $nummerAktuellerSpieltag) {
+	 		$criteria->condition = 'spiel.saison_id = :saison_id AND spieltag <= :spieltag';
+	 	} else {
+	 		$criteria->condition = 'spiel.saison_id = :saison_id AND spieltag = :spieltag';
+	 	}
+	 	$criteria->params = array(
+			':saison_id' => $saisonId,
+			':spieltag' => $nummerGewaehlterSpieltag
+		);
+		$criteria->group = 'verein.verein_id';
+
+		return $criteria;
+	}
+	
+	public static function getAbseitsSort() {
+		$sort = new CSort;
+		$sort->defaultOrder = 'abseits DESC';
+		$sort->attributes = array(
+			'wappen' => array(
+				'asc'=>'verein.vereinsname',
+				'desc'=>'verein.vereinsname DESC',
+			),
+			'abseits' => array(
+				'asc'=>'abseits',
+				'desc'=>'abseits DESC',
+			),
+			'abseits_erhalten' => array(
+				'asc'=>'abseits_erhalten',
+				'desc'=>'abseits_erhalten DESC',
+			),
+			'vereinsname' => array(
+				'asc'=>'verein.vereinsname',
+				'desc'=>'verein.vereinsname DESC',
+			)
+		);
+		
+		return $sort;
+	}
+	
+	public function getAbseits($saisonId,$nummerGewaehlterSpieltag,$nummerAktuellerSpieltag) {		
+		return SpielStatistik::model()->findAll(self::getAbseitsCriteria($saisonId,$nummerGewaehlterSpieltag,$nummerAktuellerSpieltag));
+    }
+    
+    public static function getChancenCriteria($saisonId,$nummerGewaehlterSpieltag,$nummerAktuellerSpieltag) {
+		$criteria = new CDbCriteria;
+	 	$criteria->with = array('verein', 'spiel', 'spiel_statistik_gegner');
+	 	$criteria->select = array('SUM(IF(spiel.verein_id_h = t.verein_id, tore_h, tore_g)) AS tore','SUM(IF(spiel.verein_id_h = t.verein_id, tore_g, tore_h)) AS gegentore','verein.*','SUM(t.chancen) AS chancen','SUM(spiel_statistik_gegner.chancen) AS chancen_zugelassen','SUM(t.schuesse_aufs_tor) AS schuesse','SUM(spiel_statistik_gegner.schuesse_aufs_tor) AS schuesse_zugelassen','SUM(t.schuesse_aufs_tor)/SUM(IF(spiel.verein_id_h = t.verein_id, tore_h, tore_g)) AS schuesse_pro_tor');
+	 	if($nummerGewaehlterSpieltag > $nummerAktuellerSpieltag) {
+	 		$criteria->condition = 'spiel.saison_id = :saison_id AND spieltag <= :spieltag';
+	 	} else {
+	 		$criteria->condition = 'spiel.saison_id = :saison_id AND spieltag = :spieltag';
+	 	}
+	 	$criteria->params = array(
+			':saison_id' => $saisonId,
+			':spieltag' => $nummerGewaehlterSpieltag
+		);
+		$criteria->group = 'verein.verein_id';
+
+		return $criteria;
+	}
+	
+	public static function getChancenSort() {
+		$sort = new CSort;
+		$sort->defaultOrder = 'tore DESC';
+		$sort->attributes = array(
+			'wappen' => array(
+				'asc'=>'verein.vereinsname',
+				'desc'=>'verein.vereinsname DESC',
+			),
+			'schuesse' => array(
+				'asc'=>'schuesse',
+				'desc'=>'schuesse DESC',
+			),
+			'tore' => array(
+				'asc'=>'tore',
+				'desc'=>'tore DESC',
+			),
+			'gegentore' => array(
+				'asc'=>'gegentore',
+				'desc'=>'gegentore DESC',
+			),
+			'schuesse_pro_tor' => array(
+				'asc'=>'schuesse_pro_tor',
+				'desc'=>'schuesse_pro_tor DESC',
+			),
+			'chancen' => array(
+				'asc'=>'chancen',
+				'desc'=>'chancen DESC',
+			),
+			'schuesse_zugelassen' => array(
+				'asc'=>'schuesse_zugelassen',
+				'desc'=>'schuesse_zugelassen DESC',
+			),
+			'chancen_zugelassen' => array(
+				'asc'=>'chancen_zugelassen',
+				'desc'=>'chancen_zugelassen DESC',
+			),
+			'vereinsname' => array(
+				'asc'=>'verein.vereinsname',
+				'desc'=>'verein.vereinsname DESC',
+			)
+		);
+		
+		return $sort;
+	}
+	
+	public function getChancen($saisonId,$nummerGewaehlterSpieltag,$nummerAktuellerSpieltag) {		
+		return SpielStatistik::model()->findAll(self::getChancenCriteria($saisonId,$nummerGewaehlterSpieltag,$nummerAktuellerSpieltag));
+    }
+    
+    public function getVereinLink() {
+		return CHtml::normalizeUrl(array('verein/detail', 'seo' => WTFunctions::normalisiereString($this->verein->vereinsname), 'verein_id' => $this->verein_id));
+	}
+
+	public function getVereinLinkGegner() {
+		return CHtml::normalizeUrl(array('verein/detail', 'seo' => WTFunctions::normalisiereString($this->spiel_statistik_gegner->verein_gegner->vereinsname), 'verein_id' => $this->spiel_statistik_gegner->verein_gegner->verein_id));
+	}
+	
+	public static function getStatistikSpiel($spiel_id,$saison_id,$verein_id) {
+        $ersteHalbzeitTabelle  = Yii::app()->db->createCommand()
+            ->select('ss.chancen,ss.ecken,ss.flanken,ss.zweikaempfe,ss.abseits,ss.fouls,ss.schuesse_aufs_tor,ss.ballbesitz,ss.gelb,ss.gelbrot,ss.rot')
+            ->from('spiel_statistik AS ss')
+            ->join('verein v', 'v.verein_id = ss.verein_id')
+            ->join('spiel s', 's.spiel_id = ss.spiel_id')
+            ->where('s.saison_id = :saison_id AND ss.verein_id = :verein_id AND ss.spiel_id = :spiel_id', array(':saison_id' => $saison_id, ':spiel_id' => $spiel_id, ':verein_id' => $verein_id))
+            ->group('v.verein_id')
+            //->order()
+            ->queryRow();
+        return $ersteHalbzeitTabelle;
+    }
+    
+	public static function getTopSpielStatistik($saison_id,$order = 'tore DESC') {
+        $ersteHalbzeitTabelle  = Yii::app()->db->createCommand()
+            ->select('COUNT(IF(s.ergebnis_eingetragen_flag = 1, s.spiel_id, NULL)) AS spiele,(SUM(ss.schuesse_aufs_tor)/SUM(IF(s.verein_id_h = ss.verein_id, tore_h, tore_g))) AS schuesse_pro_tor,v.vereinsname,v.verein_id,SUM(ss.chancen) AS chancen,SUM(ss.schuesse_aufs_tor) AS schuesse,SUM(ss.gelb) AS gelbe,SUM(ss.gelbrot) AS gelbrote,SUM(ss.rot) AS rote,SUM(ss.rot+ss.gelbrot+ss.gelb) AS karten,SUM(fouls) AS fouls,SUM(abseits) AS abseits,SUM(ballbesitz) AS ballbesitz, SUM(IF(s.verein_id_h = ss.verein_id, tore_h, tore_g)) AS tore, SUM(IF(s.verein_id_h = v.verein_id, s.tore_g, s.tore_h)) AS gegentore')
+            ->from('spiel_statistik AS ss')
+            ->join('verein v', 'v.verein_id = ss.verein_id')
+            ->join('spiel s', 's.spiel_id = ss.spiel_id')
+            ->where('s.saison_id = :saison_id', array(':saison_id' => $saison_id))
+            ->group('v.verein_id')
+            ->order($order)
+            ->queryRow();
+        return $ersteHalbzeitTabelle;
+    }
+		
+}

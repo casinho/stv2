@@ -1,0 +1,309 @@
+<?php
+/**
+ * This is the model class for table "forum_10_thema".
+ *
+ * The followings are the available columns in table 'forum_10_thema':
+ * @property string $thema_id
+ * @property string $thema_id_alt
+ * @property string $titel
+ * @property string $user_id
+ * @property string $spiel_id
+ * @property integer $closed_flag
+ * @property integer $voting_flag
+ * @property string $user_nick
+ * @property string $bewertung
+ * @property string $bewertung_count
+ * @property string $erstelltzeit
+ * @property string $bearbeitetzeit
+ * @property string $bearbeitet_user_id
+ * @property string $letzte_beitrag_id
+ * @property string $letzte_beitrag_zeit
+ * @property string $letzte_user_id
+ * @property string $letzte_user_nick
+ * @property integer $anzahl_antworten
+ * @property string $zuordnung_id
+ * @property string $zuordnung
+ */
+class ForumThema extends CActiveRecord {
+	protected $boardId = NULL;
+	private $_md;
+	
+	public $id = 12; 
+	public $page = 1;
+	
+	public $spiel;
+	public $bank;
+	public $user2voting;
+	public $relevanteThemen;
+	public $spielfehlentscheidung;
+	
+	public function __construct($scenario, $boardId = null) {
+		$this->boardId = $boardId;
+		parent::__construct($scenario);
+	}
+	
+	
+	/**
+	 * Returns the static model of the specified AR class.
+	 * @param string $className active record class name.
+	 * @return ForumBeitrag the static model class
+	 */
+	public static function model($className=__CLASS__) {
+		$className = (is_null($className)) ? __CLASS__ : $className;
+		$params = func_get_args(); 
+		$new_table_id = (is_array($params) && isset($params[1])) ? $params[1] : NULL;
+
+		/*
+		 * Wir koennen hier nicht die Parent-Methode aufrufen,
+		 * da wir einen zweiten Parameter benoetigen.
+		 * Die folgenden Zeilen sind aber auch zu finden in parent::model();
+		 */
+		$model = new $className(null, $new_table_id);
+		$model->_md=new CActiveRecordMetaData($model);
+        $model->attachBehaviors($model->behaviors());
+		return $model;
+	}
+	
+	protected function instantiate($attributes)	{
+		$class=get_class($this);
+		$model=new $class(null, $this->boardId);
+		return $model;
+	}
+	
+	public function getMetaData() {
+		if($this->_md!==null) {
+			return $this->_md;
+		} else {
+			return $this->_md=self::model(get_class($this), $this->boardId)->_md;
+		}
+	}
+
+	/**
+	 * @return string the associated database table name
+	 */
+	public function tableName() {
+		return 'forum_'.$this->boardId.'_thema';
+	}
+
+	/**
+	 * @return array validation rules for model attributes.
+	 */
+	public function rules() {
+		// NOTE: you should only define rules for those attributes that
+		// will receive user inputs.
+		return array(
+			array('titel', 'required'),
+			array('closed_flag, voting_flag, anzahl_antworten, beitrag_id', 'numerical', 'integerOnly'=>true),
+			array('user_id, spiel_id, bearbeitet_user_id, letzte_beitrag_id, letzte_user_id, zuordnung_id', 'length', 'max'=>10),
+			array('titel', 'length', 'max'=>180),
+			array('titel', 'length', 'min'=>3),
+			array('user_nick, letzte_user_nick', 'length', 'max'=>30),
+			array('bewertung', 'length', 'max'=>3),
+			array('bewertung_count', 'length', 'max'=>11),
+			array('zuordnung', 'length', 'max'=>80),
+			array('bearbeitetzeit', 'safe'),
+			// The following rule is used by search().
+			// Please remove those attributes that should not be searched.
+			array('thema_id, thema_id_alt, titel, user_id, spiel_id, closed_flag, voting_flag, user_nick, bewertung, bewertung_count, erstelltzeit, bearbeitetzeit, bearbeitet_user_id, letzte_beitrag_id, letzte_beitrag_zeit, letzte_user_id, letzte_user_nick, anzahl_antworten, zuordnung_id, zuordnung', 'safe', 'on'=>'search'),
+		);
+	}
+
+	/**
+	 * @return array relational rules.
+	 */
+	public function relations() {
+		// NOTE: you may need to adjust the relation name and the related
+		// class name for the relations automatically generated below.
+		return array();
+	}
+
+	/**
+	 * @return array customized attribute labels (name=>label)
+	 */
+	public function attributeLabels() {
+		return array(
+			'thema_id' => 'Thema',
+			'thema_id_alt' => 'Thema Id Alt',
+			'titel' => 'Titel',
+			'user_id' => 'User',
+			'spiel_id' => 'Spiel',
+			'closed_flag' => 'Thema schließen',
+			'voting_flag' => 'Eine strittige Szene vorschlagen',
+			'user_nick' => 'User Nick',
+			'bewertung' => 'Bewertung',
+			'bewertung_count' => 'Bewertung Count',
+			'erstelltzeit' => 'Erstelltzeit',
+			'bearbeitetzeit' => 'Bearbeitetzeit',
+			'bearbeitet_user_id' => 'Bearbeitet User',
+			'letzte_beitrag_id' => 'Letzte Beitrag',
+			'letzte_beitrag_zeit' => 'Letzte Beitrag Zeit',
+			'letzte_user_id' => 'Letzte User',
+			'letzte_user_nick' => 'Letzte User Nick',
+			'anzahl_antworten' => 'Beiträge',
+			'zuordnung_id' => 'Zuordnung',
+			'zuordnung' => 'Zuordnung',
+		);
+	}
+
+	/**
+	 * Retrieves a list of models based on the current search/filter conditions.
+	 * @return CActiveDataProvider the data provider that can return the models based on the search/filter conditions.
+	 */
+	public function search() {
+		// Warning: Please modify the following code to remove attributes that
+		// should not be searched.
+
+		$criteria=new CDbCriteria;
+
+		$criteria->compare('thema_id',$this->thema_id,true);
+		$criteria->compare('thema_id_alt',$this->thema_id_alt,true);
+		$criteria->compare('titel',$this->titel,true);
+		$criteria->compare('user_id',$this->user_id,true);
+		$criteria->compare('spiel_id',$this->spiel_id,true);
+		$criteria->compare('closed_flag',$this->closed_flag);
+		$criteria->compare('voting_flag',$this->voting_flag);
+		$criteria->compare('user_nick',$this->user_nick,true);
+		$criteria->compare('bewertung',$this->bewertung,true);
+		$criteria->compare('bewertung_count',$this->bewertung_count,true);
+		$criteria->compare('erstelltzeit',$this->erstelltzeit,true);
+		$criteria->compare('bearbeitetzeit',$this->bearbeitetzeit,true);
+		$criteria->compare('bearbeitet_user_id',$this->bearbeitet_user_id,true);
+		$criteria->compare('letzte_beitrag_id',$this->letzte_beitrag_id,true);
+		$criteria->compare('letzte_beitrag_zeit',$this->letzte_beitrag_zeit,true);
+		$criteria->compare('letzte_user_id',$this->letzte_user_id,true);
+		$criteria->compare('letzte_user_nick',$this->letzte_user_nick,true);
+		$criteria->compare('anzahl_antworten',$this->anzahl_antworten);
+		$criteria->compare('zuordnung_id',$this->zuordnung_id,true);
+		$criteria->compare('zuordnung',$this->zuordnung,true);
+
+		return new CActiveDataProvider($this, array(
+			'criteria'=>$criteria,
+		));
+	}
+	
+	public function aktualisiereLetztesThema($thema_id) {
+		
+		$attributes['thema_id'] = $thema_id;
+		$conditions = array('order' => 'erstelltzeit DESC');
+		
+		$beitrag 	= ForumBeitrag::Model(null,$this->boardId)->findByAttributes($attributes,$conditions);
+		
+		$anzahl		= ForumBeitrag::Model(null,$this->boardId)->countByAttributes($attributes);
+		
+		$thema = $this->findByPk($thema_id);
+		
+		$thema->letzte_beitrag_id	= $beitrag->beitrag_id;
+		$thema->letzte_user_id		= $beitrag->user_id;
+		$thema->letzte_user_nick	= $beitrag->user_nick;
+		$thema->letzte_beitrag_zeit	= $beitrag->erstelltzeit;
+		$thema->anzahl_antworten	= $anzahl;
+		
+		if($thema->validate()) {
+			$thema->save(false);
+		}
+		
+	}
+
+	public function afterFind() {
+		if($this->closed_flag == 1) {
+			$actions = array('antworten','zitieren');
+			if(in_array(Yii::app()->controller->action->id,$actions)) {
+				throw new CHttpException(403, 'Die angeforderte Aktion kann nicht ausgeführt werden, da das Thema geschlossen ist.');
+			}
+		}
+		parent::afterFind();		
+
+	}		
+	
+	
+	protected function afterSave() {
+		Forum::Model()->aktualisiereForum($this->boardId);
+		if($this->isNewRecord) {
+			$this->isNewRecord = false;
+		}
+		$this->setAnzahlSeiten($this->getPrimaryKey());
+		
+		parent::afterSave();
+	}	
+	
+	protected function afterDelete() {
+		parent::afterDelete();
+		Forum::Model()->aktualisiereForum($this->boardId);
+	}	
+	
+	public function setAnzahlSeiten() {
+		$attributes['thema_id']  = $this->thema_id;
+		if($this->beitrag_id != 0) {
+			$conditions = 'beitrag_id <= '.$this->beitrag_id;
+		} else {
+			$conditions = 0;
+		}
+		$anzahl	= ForumBeitrag::Model(null,$this->boardId)->countByAttributes($attributes,$conditions);
+		if($anzahl < Yii::app()->params['page_size_beitrag']) {
+			$this->page = 1;
+		} else {
+			$this->page = ceil($anzahl/Yii::app()->params['page_size_beitrag']);
+		}
+	}	
+	
+	public function getAnzahlSeiten() {
+		
+		if($this->anzahl_antworten < Yii::app()->params['page_size_beitrag']) {
+			$this->page = 1;
+		} else {
+			$this->page = ceil($this->anzahl_antworten/Yii::app()->params['page_size_beitrag']);
+		}
+	}	
+	
+	
+	public function getThemaLink($data = false,$getLastPage = false) {
+		
+		if(isset($this->page)) {
+			$page = $this->page;
+		} elseif(isset($_GET['page'])) {
+			$page = $_GET['page'];
+		} else {
+			$page = 1;
+		}
+		
+		if($getLastPage !== false) {
+			if(isset($data['anzahl_antworten'])) {
+				$page = ceil($data['anzahl_antworten']/Yii::app()->params['page_size_beitrag']);
+			} else {
+				$page = ceil($this->anzahl_antworten/Yii::app()->params['page_size_beitrag']);
+			}
+		}
+		
+		if($data === false) {
+			return CHtml::normalizeUrl(array('forum/thema', 'seo' => WTFunctions::normalisiereString($this->titel),'board_id' => $this->boardId, 'thema_id' => $this->thema_id, 'page' => $page)).'#b'.$this->beitrag_id;
+		} else {
+			return CHtml::normalizeUrl(array('forum/thema', 'seo' => WTFunctions::normalisiereString($data['titel']),'board_id' => $this->boardId, 'thema_id' => $data['thema_id'], 'page' => $page)).'#b'.$data['letzte_beitrag_id'];
+		}
+	}
+
+	public function getThemaTitel($thema_id,$forum = 'forum_23_thema') {
+ 		$themaTitel = Yii::app()->db->createCommand()
+			->select('titel')
+            ->from($forum)
+            ->where('thema_id = :thema_id', array(':thema_id' => $thema_id))
+            ->queryRow();
+		
+		return $themaTitel;
+	}
+	
+	public function setRelevanteThemen() {
+ 		
+		$typ = 'spiel';
+		
+
+		$this->relevanteThemen = Yii::app()->db->createCommand()
+        	->select('t.*, f.spiel_fehlentscheidung_id')    
+			->from('forum_'.$this->boardId.'_thema AS t')
+			->leftJoin('spiel_fehlentscheidung AS f', 'f.thema_id = t.thema_id')
+            ->where('t.zuordnung_id = :zuordnung_id AND t.thema_id != :thema_id AND t.zuordnung = :zuordnung',array(':zuordnung_id' => $this->zuordnung_id, ':thema_id' => $this->thema_id, 'zuordnung' => $typ))
+            ->order('t.voting_flag DESC')
+            ->queryAll();
+
+	}
+
+}

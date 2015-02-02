@@ -1,0 +1,189 @@
+<?php
+class TipprundeController extends Controller {
+	public function filters() {
+		return array(
+			'accessControl', // perform access control for CRUD operations
+		);
+	}
+
+	public function accessRules() {
+		return array(
+			array('allow',  // allow all users to perform 'index' and 'view' actions
+				'actions'=>array('index', 'startseite'),
+				'users'=>array('*'),
+			),
+			array('allow',  // allow all users to perform 'index' and 'view' actions
+				'actions'=>array('tippabgabe','tippabagabe'),
+				'roles'=>array('authentifiziert'),
+			),
+			array('deny',  // deny all users
+				'users'=>array('*'),
+			),
+		);
+	}
+	
+	public function actionStartseite() {
+		$saisonId 								= Saison::model()->getAktuelleSaisonId(Yii::app()->params['wettbewerbId']);
+    	$spieltagsAnzeige 						= WTFunctions::getDatenFuerSpieltagsAnzeigeBySaisonId($saisonId,true,true);
+		$nummerAktuellerSpieltag 				= $spieltagsAnzeige['aktuellerSpieltag'];
+        $nummerGewaehlterSpieltag 				= $spieltagsAnzeige['gewaehlterSpieltag'];
+        $naechsterSpieltag          			= Spiel::model()->getNummerFolgenderSpieltag($saisonId);
+		$saison 								= Saison::model()->findByPk($saisonId);  	
+		$rangliste 								= TippGesamt::model()->getGesamtranglisteNormalePunkte($saisonId);
+		$rangliste_wt 							= TippGesamt::model()->getGesamtranglisteWahreTabelle($saisonId);
+
+    	$viewparams = array(
+    			'saisonId' => $saisonId,
+    			'spieltagsAnzeige' => $spieltagsAnzeige,
+                'rangliste' => $rangliste,
+                'rangliste_wt' => $rangliste_wt,
+        );
+        $this->breadcrumbs = array('Tipprunde');
+		$this->render('startseite',$viewparams);
+	}
+	
+	public function actionIndex() {
+		$saisonId 								= Saison::model()->getAktuelleSaisonId(Yii::app()->params['wettbewerbId']);
+    	$spieltagsAnzeige 						= WTFunctions::getDatenFuerSpieltagsAnzeigeBySaisonId($saisonId,true,true);
+		$nummerAktuellerSpieltag 				= $spieltagsAnzeige['aktuellerSpieltag'];
+        $nummerGewaehlterSpieltag 				= $spieltagsAnzeige['gewaehlterSpieltag'];
+		$saison 								= Saison::model()->findByPk($saisonId);
+    	if($nummerGewaehlterSpieltag > $nummerAktuellerSpieltag) {
+			$rangliste = new CActiveDataProvider('Tipp', array(
+				'criteria' => Tipp::getGesamtranglisteCriteria($saisonId,$nummerGewaehlterSpieltag,$nummerAktuellerSpieltag),
+				'pagination' => array('pageSize' => 50),
+				'sort' => Tipp::getGesamtranglisteSort(),
+			));
+    	} else {
+    		$rangliste = new CActiveDataProvider('Tipp', array(
+				'criteria' => Tipp::getRanglisteCriteria($saisonId,$nummerGewaehlterSpieltag,$nummerAktuellerSpieltag),
+				'pagination' => array('pageSize' => 50),
+				'sort' => Tipp::getRanglisteSort(),
+			));
+    	}
+    	$viewparams = array(
+    			'saisonId' => $saisonId,
+    			'spieltagsAnzeige' => $spieltagsAnzeige,
+                'rangliste' => $rangliste,
+        );
+        $this->breadcrumbs = array('Tipprunde' => array('tipprunde/'),'Gesamtrangliste');
+		$this->render('gesamtrangliste',$viewparams);
+	}
+	
+	protected function performAjaxValidation($model) {
+	    if(isset($_POST['ajax']) && $_POST['ajax']==='tipp-form') {
+	        echo CActiveForm::validate($model);
+	        Yii::app()->end();
+	    }
+	}
+
+	public function actionTippabgabe() {
+	   	$saisonId 	= Saison::model()->getAktuelleSaisonId(Yii::app()->params['wettbewerbId']);
+	   	$model = new Tipp;
+    	$this->performAjaxValidation($model);
+	   	if(isset($_POST['Tipp'])) {
+	        $valid = true;
+	        foreach($_POST['Tipp'] as $i=>$tipp) {	        	
+	            if(isset($_POST['Tipp'][$i])) {
+	                if($tipp['tipp_id'] > 0) {
+	                	$item = Tipp::model()->findByPK($tipp['tipp_id']);
+	                } else {
+	                	$item = new Tipp;
+	                	$item->user_id = Yii::app()->user->getId();
+	                	$item->saison_id = $saisonId;
+	                }
+	                $item->attributes = $_POST['Tipp'][$i];
+	            }
+	            $singleSpiel = Spiel::model()->findByPK($tipp['spiel_id']);
+	            if(strtotime($singleSpiel['anstosszeit']) > time()) {
+		            $valid = $item->validate();
+		            if($valid) {
+			        	if($item->save()) {
+							Yii::app()->user->setFlash('tipps_gespeichert','Deine Tipps wurden erfolgreich gespeichert!');
+						} else {
+							
+						}
+		        	}
+	            }
+	        }
+	    }
+        $saisonId 							= Saison::model()->getAktuelleSaisonId(Yii::app()->params['wettbewerbId']);
+    	$spieltagsAnzeige 					= WTFunctions::getDatenFuerSpieltagsAnzeigeBySaisonId($saisonId,false,false);
+		$nummerAktuellerSpieltag 			= $spieltagsAnzeige['aktuellerSpieltag'];
+        $nummerGewaehlterSpieltag 			= $spieltagsAnzeige['gewaehlterSpieltag'];
+        $naechsterSpieltag          		= Spiel::model()->getNummerFolgenderSpieltag($saisonId);
+		$saison 							= Saison::model()->findByPk($saisonId);
+		$naechsteSpiele             		= Spiel::model()->getSpieleBySaisonAndSpieltag($saisonId, $nummerGewaehlterSpieltag);
+        $vereine                    		= Verein::model()->getVereineBySaison($saisonId);
+        $schiedsrichter             		= Schiedsrichter::model()->getSchiedsrichterBySaison($saisonId);
+
+        $viewparams = array(
+                'saisonId' => $saisonId,
+                'spieltagsAnzeige' => $spieltagsAnzeige,
+                'saison' => $saison,
+                'naechsterSpieltag' => $naechsterSpieltag,
+                'naechsteSpiele' => $naechsteSpiele,
+                'gewaehlterSpieltag' => $nummerGewaehlterSpieltag,
+                'vereine' => $vereine,
+                'schiedsrichter' => $schiedsrichter
+        );
+        $this->breadcrumbs = array('Tipprunde' => array('tipprunde/tippabgabe'),'Tippabgabe');
+		$this->render('tippabgabe',$viewparams);
+	}	
+	
+	public function actionTippabagabe() {
+	   	$saisonId 	= Saison::model()->getAktuelleSaisonId(Yii::app()->params['wettbewerbId']);
+	   	$model = new Tipp;
+    	$this->performAjaxValidation($model);
+	   	if(isset($_POST['Tipp'])) {
+	        $valid = true;
+	        foreach($_POST['Tipp'] as $i=>$tipp) {	        	
+	            if(isset($_POST['Tipp'][$i])) {
+	                if($tipp['tipp_id'] > 0) {
+	                	$item = Tipp::model()->findByPK($tipp['tipp_id']);
+	                } else {
+	                	$item = new Tipp;
+	                	$item->user_id = Yii::app()->user->getId();
+	                	$item->saison_id = $saisonId;
+	                }
+	                $item->attributes = $_POST['Tipp'][$i];
+	            }
+	            $singleSpiel = Spiel::model()->findByPK($tipp['spiel_id']);
+	            if(strtotime($singleSpiel['anstosszeit']) > time()) {
+		            $valid = $item->validate();
+		            if($valid) {
+			        	if($item->save()) {
+							Yii::app()->user->setFlash('tipps_gespeichert','Deine Tipps wurden erfolgreich gespeichert!');
+						} else {
+							
+						}
+		        	}
+	            }
+	        }
+	    }
+        $saisonId 							= Saison::model()->getAktuelleSaisonId(Yii::app()->params['wettbewerbId']);
+    	$spieltagsAnzeige 					= WTFunctions::getDatenFuerSpieltagsAnzeigeBySaisonId($saisonId,false,false);
+		$nummerAktuellerSpieltag 			= $spieltagsAnzeige['aktuellerSpieltag'];
+        $nummerGewaehlterSpieltag 			= $spieltagsAnzeige['gewaehlterSpieltag'];
+        $naechsterSpieltag          		= Spiel::model()->getNummerFolgenderSpieltag($saisonId);
+		$saison 							= Saison::model()->findByPk($saisonId);
+		$naechsteSpiele             		= Spiel::model()->getSpieleBySaisonAndSpieltag($saisonId, $nummerGewaehlterSpieltag);
+        $vereine                    		= Verein::model()->getVereineBySaison($saisonId);
+        $schiedsrichter             		= Schiedsrichter::model()->getSchiedsrichterBySaison($saisonId);
+
+        $viewparams = array(
+                'saisonId' => $saisonId,
+                'spieltagsAnzeige' => $spieltagsAnzeige,
+                'saison' => $saison,
+                'naechsterSpieltag' => $naechsterSpieltag,
+                'naechsteSpiele' => $naechsteSpiele,
+                'gewaehlterSpieltag' => $nummerGewaehlterSpieltag,
+                'vereine' => $vereine,
+                'schiedsrichter' => $schiedsrichter
+        );
+        $this->breadcrumbs = array('Tipprunde' => array('tipprunde/tippabgabe'),'Tippabgabe');
+		$this->render('tippabgabe',$viewparams);
+	}	
+	
+	
+} 

@@ -1,0 +1,15 @@
+<?php
+class CommunityController extends Controller {
+    public function actionMitglieder() {
+        $user = new CActiveDataProvider('User', array(
+                'criteria' => User::getUserCriteria(),
+                'pagination' => array('pageSize' => 25),
+                'sort' => User::getUserSort(),
+        ));
+        $viewparams = array(
+                'user' => $user,
+        );
+        $this->breadcrumbs = array('Community' => array('forum/index'),'Mitglieder');
+        $this->render('mitglieder', $viewparams);
+    }
+}

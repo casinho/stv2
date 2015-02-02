@@ -1,0 +1,141 @@
+<?php
+class Verein extends CActiveRecord {
+
+    public static function model($className = __CLASS__) {
+        return parent::model($className);
+    }
+
+    public function tableName() {
+        return 'verein';
+    }
+
+    public function rules() {
+        // NOTE: you should only define rules for those attributes that
+        // will receive user inputs.
+        return array(
+                array(
+                        'vereinsname',
+                        'required'
+                ),
+                array(
+                        'vereinsname',
+                        'length',
+                        'max' => 45
+                ),
+                // The following rule is used by search().
+                // Please remove those attributes that should not be searched.
+                array(
+                        'vereinsname',
+                        'safe',
+                        'on' => 'search'
+                )
+        );
+    }
+
+    /**
+     *
+     * @return array relational rules.
+     */
+    public function relations() {
+        // NOTE: you may need to adjust the relation name and the related
+        // class name for the relations automatically generated below.
+        return array(
+                'spielStatistik' => array(
+                        self::HAS_MANY,
+                        'SpielStatistik',
+                        'verein_id'
+                ),
+                'spielFehlentscheidung' => array(
+                        self::HAS_MANY,
+                        'SpielFehlentscheidung',
+                        'verein_id'
+                ),
+                'verein2Saison' => array(
+                        self::HAS_MANY,
+                        'Verein2saison',
+                        'verein_id'
+                )
+        );
+    }
+
+    public function search() {
+        // Warning: Please modify the following code to remove attributes that
+        // should not be searched.
+        $criteria = new CDbCriteria();
+        
+        $criteria->compare('vereinsname', $this->vereinsname);
+        
+        return new CActiveDataProvider($this, array(
+                'criteria' => $criteria
+        ));
+    }
+
+    public function getVereineVonSaison($saison_id = 89) {
+        $sql = "SELECT 
+	 				v.verein_id,
+	 				v.vereinsname
+	 			FROM 
+	 				verein2saison AS v2s 
+	 			LEFT JOIN 
+	 				verein AS v ON v.verein_id = v2s.verein_id 
+	 			WHERE 
+	 				v2s.saison_id = '" . $saison_id . "'
+	 			ORDER BY 
+	 				v.vereinsname ASC";
+        
+        $dataReader = Yii::app()->db->createCommand($sql)->queryAll();
+        
+        if(empty($dataReader)) {
+            return false;
+        } else {
+            return $dataReader;
+        }
+    }
+
+    public function getVereineBySaison($saisonId) {
+        $vereine = $this->with(array(
+                'verein2Saison' => array(
+                        'condition' => 'verein2Saison.saison_id = :saisonId',
+                        'params' => array(
+                                ':saisonId' => $saisonId
+                        )
+                )
+        ))->findAll(array('order'=>'vereinsname'));
+        return $vereine;
+    }
+
+    public function attributeLabels() {
+        return array(
+                'vereinsname' => 'Vereinsname'
+        );
+    }
+
+    public function getUrlWappen($pixel = 57) {
+        $url = '/images/vereinswappen/' . $pixel . 'x' . $pixel . '/' . $this->verein_id . '.png';
+        return $url;
+    }
+
+    public function getVereinByID($verein_id = 0) {
+		return CHtml::normalizeUrl(array('verein/detail', 'seo' => WTFunctions::normalisiereString($this->vereinsname), 'verein_id' => $this->verein_id));
+	}
+
+
+	public function getVereinLink() {
+		return CHtml::normalizeUrl(array('verein/detail', 'seo' => WTFunctions::normalisiereString($this->vereinsname), 'verein_id' => $this->verein_id));
+	}
+	
+	
+    public function getBilanzBySaison($saisonId) {
+        $bilanz = Yii::app()->db->createCommand()
+            ->select('
+                    SUM(1) AS anzahl,
+                    SUM(IF(f.verein_id != :vereinId AND (((s.verein_id_h = :vereinId AND f.tore_neu_h < f.tore_alt_h) OR (s.verein_id_h = :vereinId AND f.tore_alt_g < f.tore_neu_g)) OR ((s.verein_id_g = :vereinId AND f.tore_neu_g < f.tore_alt_g) OR (s.verein_id_g = :vereinId AND f.tore_alt_h < f.tore_neu_h))),1,0)) AS vorteil,
+                    SUM(IF(f.verein_id = :vereinId AND (((s.verein_id_h = :vereinId AND f.tore_neu_g < f.tore_alt_g) OR (s.verein_id_h = :vereinId AND f.tore_alt_h < f.tore_neu_h)) OR ((s.verein_id_g = :vereinId AND f.tore_neu_h < f.tore_alt_h) OR (s.verein_id_g = :vereinId AND f.tore_alt_g < f.tore_neu_g))),1,0)) AS nachteil
+                    ')
+            ->from('spiel_fehlentscheidung f')
+            ->join('spiel s', 's.spiel_id = f.spiel_id AND s.saison_id = :saisonId AND :vereinId IN (s.verein_id_h, s.verein_id_g)', array(':saisonId' => $saisonId, ':vereinId' => $this->verein_id))
+            ->where('anzeige_flag = 1')
+            ->queryRow();
+        return $bilanz;
+    }
+}

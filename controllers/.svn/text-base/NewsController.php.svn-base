@@ -1,0 +1,194 @@
+<?php
+class NewsController extends Controller {
+	public $useXUpload = false;
+	
+	public function filters() {
+		return array(
+			'accessControl', // perform access control for CRUD operations
+			'postOnly + delete', // we only allow deletion via POST request
+		);
+	}
+
+	public function accessRules() {
+		return array(
+			array('allow',  // allow all users to perform 'index' and 'view' actions
+				'actions'=>array('index','view'),
+				'users'=>array('*'),
+			),
+			array('allow',
+				'actions'=>array('create','update','delete','admin','upload','ajaxcrop'),
+				'roles'=>array('super-admin'),
+			),
+			array('deny',  // deny all users
+				'users'=>array('*'),
+			),
+		);
+	}
+	
+	public function actions() {
+        return array(
+            'upload'=>array(
+                'class'=>'xupload.actions.XUploadAction',
+                'path' =>Yii::app()->getBasePath() . "/../images/news/originals",
+                'publicPath' => Yii::app()->getBaseUrl() . "/images/news/originals",
+            ),
+        );
+	}
+	
+	public function actionIndex() {
+		$alleNews = News::model()->kurzmeldung(false)->getStartseitenNews();
+		$kurzmeldungen = News::model()->kurzmeldung(true)->getStartseitenNews(5);
+		$this->breadcrumbs = array('News');
+		$this->render('newsUebersicht', array('alleNews' => $alleNews, 'kurzmeldungen' => $kurzmeldungen));
+	}
+	
+	public function actionView() {
+		$newsId = Yii::app()->request->getParam('id');
+		$news = News::model()->getEinzelneNews($newsId);
+		$kurzmeldungen = News::model()->kurzmeldung(true)->getStartseitenNews(5);
+		$this->breadcrumbs = array(
+			'News' => array('news/'),
+			$news->titel
+		);
+		$this->render('newsAnsicht', array('news' => $news, 'kurzmeldungen' => $kurzmeldungen));
+	}
+	
+	public function actionAdmin() {
+		$this->breadcrumbs = array(
+			'Admin-Center' => array('admincenter/'),
+			'News-Übersicht',
+		);
+		
+		$alleNews = News::model()->findAll(array('order' => 'erstelltdatum DESC'));
+		$this->render('adminNewsUebersicht', array('alleNews' => $alleNews));
+	}
+	
+	public function actionCreate() {
+		if($this->useXUpload) {
+			Yii::import("xupload.models.XUploadForm");
+			$xuploadForm = new XUploadForm;
+		} else {
+			$xuploadForm = null;
+		}
+		$news = new News();
+		$news->kurzmeldung = 0;
+		$news->online_flag = 0;
+		$news->quelle = 'dpa';
+		
+		$this->performAjaxValidation($news);
+		
+		if(isset($_POST['News'])) {
+			$news->attributes=$_POST['News'];
+			$news->news_id_alt = 0;
+			$image = CUploadedFile::getInstance($news,'bild');
+			if(is_object($image)) {
+				$news->bild = $image->getName();
+			}
+			if($news->save()) {
+				if(is_object($image)) {
+                	$image->saveAs('images/news/upload/'.$image->getName());
+				}
+				$this->redirect(array('update','id'=>$news->news_id));
+			}
+		}
+		$this->breadcrumbs = array(
+			'Admin-Center' => array('admincenter/'),
+			'Neue News erstellen',
+		);
+		$this->render('create', array('model' => $news, 'xupload' => $xuploadForm));
+	}
+	
+	public function actionUpdate() {
+		if($this->useXUpload) {
+			Yii::import("xupload.models.XUploadForm");
+			$xuploadForm = new XUploadForm;
+		} else {
+			$xuploadForm = null;
+		}
+		
+		$news = News::model()->findByPk(Yii::app()->request->getParam('id'));
+		
+		$this->performAjaxValidation($news);
+		
+		if(isset($_POST['News'])) {
+			$originalesBild = $news->bild;
+			$news->attributes=$_POST['News'];
+			$image = CUploadedFile::getInstance($news,'bild');
+			if(is_object($image)) {
+				$news->bild = $image->getName();
+			} else {
+				$news->bild = $originalesBild;
+			}
+			if($news->save()) {
+				if(is_object($image)) {
+                	$image->saveAs('images/news/upload/'.$image->getName());
+				}
+				$this->redirect(array('view','id'=>$news->news_id));
+			}
+		}
+		
+		if(is_file('images/news/upload/'.$news->bild)) {
+			$imageSize = getimagesize('images/news/upload/'.$news->bild); 
+		} else {
+			$imageSize[0] = 0;
+			$imageSize[1] = 0;
+		}
+		
+		$this->breadcrumbs = array(
+			'Admin-Center' => array('admincenter/'),
+			'News-Übersicht' => array('news/admin'),
+			$news->titel,
+		);
+		$this->render('update', array('model' => $news, 'xupload' => $xuploadForm, 'imageSize' => $imageSize));
+	}
+	
+	public function actionDelete($id) {
+		$this->loadModel($id)->delete();
+
+		// if AJAX request (triggered by deletion via admin grid view), we should not redirect the browser
+		if(!isset($_GET['ajax']))
+			$this->redirect(isset($_POST['returnUrl']) ? $_POST['returnUrl'] : array('admin'));
+	}
+	
+	public function loadModel($id)
+	{
+		$model=News::model()->findByPk($id);
+		if($model===null)
+			throw new CHttpException(404,'The requested page does not exist.');
+		return $model;
+	}
+	
+	public function actionAjaxCrop() {
+		$news = News::model()->findByPk(Yii::app()->request->getParam('id'));
+		
+		Yii::import('ext.jcrop.EJCropper');
+		
+		$jcropper = new EJCropper();
+		$jcropper->thumbPath = 'images/news/originals';
+		
+		// get the image cropping coordinates (or implement your own method)
+ 		$coords = $jcropper->getCoordsFromPost('imageId');
+ 		
+		// some settings ...
+		$jcropper->targ_w = $coords['w'];
+		$jcropper->targ_h = $coords['h'];
+		$jcropper->jpeg_quality = 85;
+		$jcropper->png_compression = 8;
+		
+		// returns the path of the cropped image, source must be an absolute path.
+		$memlimit = ini_get('memory_limit');
+		ini_set('memory_limit', '512M');
+		$thumbnail = $jcropper->crop('images/news/upload/'.$news->bild, $coords);
+		ini_set('memory_limit', $memlimit);
+	}
+	
+	protected function performAjaxValidation($model)
+	{
+		if(isset($_POST['ajax']) && $_POST['ajax']==='news-form')
+		{
+			echo CActiveForm::validate($model);
+			Yii::app()->end();
+		}
+	}
+}
+?>

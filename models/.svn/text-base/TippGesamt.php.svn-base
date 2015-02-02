@@ -1,0 +1,224 @@
+<?php
+
+/**
+ * This is the model class for table "tipp_gesamt".
+ *
+ * The followings are the available columns in table 'tipp_gesamt':
+ * @property string $user_id
+ * @property string $saison_id
+ * @property integer $punkte
+ *
+ * The followings are the available model relations:
+ * @property User $user
+ */
+class TippGesamt extends CActiveRecord
+{
+	/**
+	 * Returns the static model of the specified AR class.
+	 * @param string $className active record class name.
+	 * @return TippGesamt the static model class
+	 */
+	public static function model($className=__CLASS__)
+	{
+		return parent::model($className);
+	}
+	
+	public function primaryKey() {
+    	return array('user_id', 'saison_id');
+    }
+	
+
+	/**
+	 * @return string the associated database table name
+	 */
+	public function tableName()
+	{
+		return 'tipp_gesamt';
+	}
+
+	/**
+	 * @return array validation rules for model attributes.
+	 */
+	public function rules()
+	{
+		// NOTE: you should only define rules for those attributes that
+		// will receive user inputs.
+		return array(
+			array('user_id, saison_id, punkte', 'required'),
+			array('punkte', 'numerical', 'integerOnly'=>true),
+			array('user_id, saison_id', 'length', 'max'=>10),
+			// The following rule is used by search().
+			// Please remove those attributes that should not be searched.
+			array('user_id, saison_id, punkte', 'safe', 'on'=>'search'),
+		);
+	}
+
+	/**
+	 * @return array relational rules.
+	 */
+	public function relations()
+	{
+		// NOTE: you may need to adjust the relation name and the related
+		// class name for the relations automatically generated below.
+		return array(
+			'user' => array(self::BELONGS_TO, 'User', 'user_id'),
+			'saison' => array(self::BELONGS_TO, 'Saison', 'saison_id'),
+			'spiel' => array(self::BELONGS_TO, 'Spiel', 'spiel_id'),
+		);
+	}
+
+	/**
+	 * @return array customized attribute labels (name=>label)
+	 */
+	public function attributeLabels()
+	{
+		return array(
+			'user_id' => 'User',
+			'saison_id' => 'Saison',
+			'punkte' => 'Punkte',
+		);
+	}
+
+	/**
+	 * Retrieves a list of models based on the current search/filter conditions.
+	 * @return CActiveDataProvider the data provider that can return the models based on the search/filter conditions.
+	 */
+	public function search()
+	{
+		// Warning: Please modify the following code to remove attributes that
+		// should not be searched.
+
+		$criteria=new CDbCriteria;
+
+		$criteria->compare('user_id',$this->user_id,true);
+		$criteria->compare('saison_id',$this->saison_id,true);
+		$criteria->compare('punkte',$this->punkte);
+
+		return new CActiveDataProvider($this, array(
+			'criteria'=>$criteria,
+		));
+	}
+
+	public static function getRanglisteCriteria($saisonId,$nummerGewaehlterSpieltag,$nummerAktuellerSpieltag) {
+		$criteria = new CDbCriteria;
+	 	$criteria->with = array('user');
+	 	$criteria->select = 'user.* ,punkte';
+	 	$criteria->condition = 'saison_id = :saison_id';
+	 	$criteria->params = array(
+			':saison_id' => $saisonId
+		);
+		$criteria->group = 'user.user_id';
+
+		return $criteria;
+	}
+
+    
+    public static function getRanglisteSort() {
+		$sort = new CSort;
+		$sort->defaultOrder = 'punkte DESC';
+		$sort->attributes = array(
+			'rang' => array(
+				'asc'=>'verein.vereinsname',
+				'desc'=>'verein.vereinsname DESC',
+			),
+			'punkte' => array(
+				'asc'=>'punkte',
+				'desc'=>'punkte DESC',
+			),
+			'user_nick' => array(
+				'asc'=>'user_nick',
+				'desc'=>'user_nick DESC',
+			)
+		);
+		
+		return $sort;
+	}
+	
+	
+	public function getPunkte($user_id,$saison_id) {
+		
+        $punkte = TippGesamt::model()->find(array(
+        			'select' => 'punkte',
+        			'condition' => 'saison_id = :saison_id AND user_id = :user_id',
+            	    'params' => array(
+                        ':saison_id' => $saison_id,
+                        ':user_id' => $user_id
+                	),
+        		)
+        ); 		
+        
+		return $punkte;
+	}
+	
+	
+	public function getPunkteWT($user_id,$saison_id) {
+		
+        $punkte = TippGesamt::model()->find(array(
+        			'select' => 'punkte_wt',
+        			'condition' => 'saison_id = :saison_id AND user_id = :user_id',
+            	    'params' => array(
+                        ':saison_id' => $saison_id,
+                        ':user_id' => $user_id
+                	),
+        		)
+        ); 		
+        
+		return $punkte;
+	}
+	
+	
+	
+	public function getRang($saison_id,$punkte = 0) {
+		
+        $rang = TippGesamt::model()->count(array(
+        			'condition' => 'saison_id = :saison_id AND punkte >= :punkte',
+            	    'params' => array(
+                        ':saison_id' => $saison_id,
+                        ':punkte' => $punkte
+                	),
+        		)
+        ); 		
+		
+		return $rang;
+	}	
+	
+	public function getRangWT($saison_id,$punkte_wt = 0) {
+		
+        $rang = TippGesamt::model()->count(array(
+        			'condition' => 'saison_id = :saison_id AND punkte_wt >= :punkte',
+            	    'params' => array(
+                        ':saison_id' => $saison_id,
+                        ':punkte' => $punkte_wt
+                	),
+        		)
+        ); 		
+		
+		return $rang;
+	}	
+	
+	public static function getGesamtranglisteNormalePunkte($saisonId) {
+		$tipps = TippGesamt::model()->findAll(array(
+                'select' => array(
+                        'user_id',
+                        'punkte'),
+                'condition' => 'saison_id = '.$saisonId,
+                'order' => 'punkte DESC',
+                'limit' => '10'
+        ));
+        return $tipps;
+	}
+	
+	public static function getGesamtranglisteWahreTabelle($saisonId) {
+		$tipps = TippGesamt::model()->findAll(array(
+                'select' => array(
+                        'user_id',
+                        'punkte_wt'),
+                'condition' => 'saison_id = '.$saisonId,
+                'order' => 'punkte_wt DESC',
+                'limit' => '10'
+        ));
+        return $tipps;
+	}
+	
+	
+}

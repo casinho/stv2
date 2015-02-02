@@ -1,0 +1,23 @@
+K 25
+svn:wc:ra_dav:version-url
+V 48
+/svn/wt/!svn/ver/681/trunk/wt/protected/commands
+END
+TipprundeCommand.php
+K 25
+svn:wc:ra_dav:version-url
+V 69
+/svn/wt/!svn/ver/681/trunk/wt/protected/commands/TipprundeCommand.php
+END
+NewsCommand.php
+K 25
+svn:wc:ra_dav:version-url
+V 64
+/svn/wt/!svn/ver/248/trunk/wt/protected/commands/NewsCommand.php
+END
+RBACCommand.php
+K 25
+svn:wc:ra_dav:version-url
+V 64
+/svn/wt/!svn/ver/573/trunk/wt/protected/commands/RBACCommand.php
+END

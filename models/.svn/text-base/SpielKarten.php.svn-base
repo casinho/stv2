@@ -1,0 +1,113 @@
+<?php
+
+/**
+ * This is the model class for table "spiel_karten".
+ *
+ * The followings are the available columns in table 'spiel_karten':
+ * @property string $spiel_karten_id
+ * @property string $spiel_id
+ * @property string $verein_id
+ * @property integer $spielort_flag
+ * @property string $spieler_id
+ * @property integer $gelb
+ * @property integer $gelb_rot
+ * @property integer $rot
+ *
+ * The followings are the available model relations:
+ * @property Spiel $spiel
+ * @property Spieler $spieler
+ * @property Verein $verein
+ */
+class SpielKarten extends CActiveRecord
+{
+	/**
+	 * Returns the static model of the specified AR class.
+	 * @param string $className active record class name.
+	 * @return SpielKarten the static model class
+	 */
+	public static function model($className=__CLASS__)
+	{
+		return parent::model($className);
+	}
+
+	/**
+	 * @return string the associated database table name
+	 */
+	public function tableName()
+	{
+		return 'spiel_karten';
+	}
+
+	/**
+	 * @return array validation rules for model attributes.
+	 */
+	public function rules()
+	{
+		// NOTE: you should only define rules for those attributes that
+		// will receive user inputs.
+		return array(
+			array('spiel_id, verein_id, spielort_flag, spieler_id, gelb, gelb_rot, rot', 'required'),
+			array('spielort_flag, gelb, gelb_rot, rot', 'numerical', 'integerOnly'=>true),
+			array('spiel_id, verein_id, spieler_id', 'length', 'max'=>10),
+			// The following rule is used by search().
+			// Please remove those attributes that should not be searched.
+			array('spiel_karten_id, spiel_id, verein_id, spielort_flag, spieler_id, gelb, gelb_rot, rot', 'safe', 'on'=>'search'),
+		);
+	}
+
+	/**
+	 * @return array relational rules.
+	 */
+	public function relations()
+	{
+		// NOTE: you may need to adjust the relation name and the related
+		// class name for the relations automatically generated below.
+		return array(
+			'spiel' => array(self::BELONGS_TO, 'Spiel', 'spiel_id'),
+			'spieler' => array(self::BELONGS_TO, 'Spieler', 'spieler_id'),
+			'verein' => array(self::BELONGS_TO, 'Verein', 'verein_id'),
+		);
+	}
+
+	/**
+	 * @return array customized attribute labels (name=>label)
+	 */
+	public function attributeLabels()
+	{
+		return array(
+			'spiel_karten_id' => 'Spiel Karten',
+			'spiel_id' => 'Spiel',
+			'verein_id' => 'Verein',
+			'spielort_flag' => 'Spielort Flag',
+			'spieler_id' => 'Spieler',
+			'gelb' => 'Gelb',
+			'gelb_rot' => 'Gelb Rot',
+			'rot' => 'Rot',
+		);
+	}
+
+	/**
+	 * Retrieves a list of models based on the current search/filter conditions.
+	 * @return CActiveDataProvider the data provider that can return the models based on the search/filter conditions.
+	 */
+	public function search()
+	{
+		// Warning: Please modify the following code to remove attributes that
+		// should not be searched.
+
+		$criteria=new CDbCriteria;
+
+		$criteria->compare('spiel_karten_id',$this->spiel_karten_id,true);
+		$criteria->compare('spiel_id',$this->spiel_id,true);
+		$criteria->compare('verein_id',$this->verein_id,true);
+		$criteria->compare('spielort_flag',$this->spielort_flag);
+		$criteria->compare('spieler_id',$this->spieler_id,true);
+		$criteria->compare('gelb',$this->gelb);
+		$criteria->compare('gelb_rot',$this->gelb_rot);
+		$criteria->compare('rot',$this->rot);
+
+		return new CActiveDataProvider($this, array(
+			'criteria'=>$criteria,
+		));
+	}
+}

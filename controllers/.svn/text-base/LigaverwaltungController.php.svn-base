@@ -1,0 +1,125 @@
+<?php
+class LigaverwaltungController extends Controller {
+	public function filters() {
+		return array(
+			'accessControl', // perform access control for CRUD operations
+		);
+	}
+
+	public function accessRules() {
+		return array(
+			array('allow',  // allow all users to perform 'index' and 'view' actions
+				'actions'=>array('index', 'update'),
+				'roles'=>array('super-admin'),
+			),
+			array('deny',  // deny all users
+				'users'=>array('*'),
+			),
+		);
+	}
+	
+	public function actionIndex() {
+		$this->breadcrumbs = array(
+			'Admin-Center'
+		);
+		
+		$saisonId = Saison::model()->getAktuelleSaisonId(Yii::app()->params['wettbewerbId']);
+		$templateParams['spieltagsAnzeige'] = WTFunctions::getDatenFuerSpieltagsAnzeigeBySaisonId($saisonId, false, true);
+		$attributes['saison_id'] = Yii::app()->request->getParam('saisonId', $saisonId);
+		$attributes['spieltag'] = Yii::app()->request->getParam('spieltag', $templateParams['spieltagsAnzeige']['aktuellerSpieltag']);
+		
+		$cdbcriteria = new CDbCriteria(array(
+			'with' => array('verein_h', 'verein_g'),
+			'condition' => 'saison_id = :saisonId AND spieltag = :spieltag',
+			'order' => 'sort ASC',
+			'params' => array(
+				':saisonId' => $attributes['saison_id'],
+				':spieltag' => $attributes['spieltag'],
+			),
+		));
+		$templateParams['model'] = Spiel::model()->findAll($cdbcriteria);
+		$schiedsrichter = Schiedsrichter::model()->findAll();
+		$schiris[0] = '---';
+		foreach($schiedsrichter as $schiri) {
+			$schiris[$schiri->schiedsrichter_id] = $schiri->vorname.' '.$schiri->nachname;
+		}
+		foreach($templateParams['model'] as $row => $model) {
+			$templateParams['model'][$row]->alleSchiedsrichter = $schiris;
+		}
+		
+		if(isset($_POST['Spiel'])) {
+			$valid = true;
+			foreach($templateParams['model'] as $row => $spiel) {
+				if(isset($_POST['Spiel'][$row]['spiel_id']) && $_POST['Spiel'][$row]['spiel_id'] == $spiel['spiel_id']) {
+					$spiel->attributes = $_POST['Spiel'][$row];
+					$spiel->anstosszeit = $spiel->attributes['anstossDatum'].' '.$spiel->attributes['anstossUhrzeit'];
+				} else {
+					//echo $_POST['Spiel'][$row]['spiel_id'].' - '.$spiel['spiel_id'];
+					//echo "Zurodnungsfehler!";
+				}
+				// validate() && $valid ergibt TRUE wenn beides auf True steht. Sonst False und bleibt False
+				$valid = $spiel->validate() && $valid;
+			}
+			
+			if($valid) {
+				$save = true;
+				foreach($templateParams['model'] as $row => $spiel) {
+					$save = $templateParams['model'][$row]->save(false) && $save;
+				}
+			}
+			
+			if($save) {
+				Yii::app()->user->setFlash('aenderungen', 'Ihre Änderungen wurden gespeichert');
+			}
+		}
+		
+		$this->render('index', $templateParams);
+	}
+	
+	public function actionUpdate($id) {
+		$templateParams = array();
+		
+		if(!is_numeric($id)) {
+			throw new CHttpException('401', 'Netter Versuch...');
+		}
+		
+		$templateParams['fehlentscheidungen'] = SpielFehlentscheidung::getAlleFehlentscheidungenBySpiel($id);
+
+		$spielObj = Spiel::model()->getSingleSpiel($id);
+		$spielObj->setRelevanteThemen();
+		$templateParams['spiel'] = $spielObj;
+		$templateParams['vereine'] = array(0 => '---', $spielObj->verein_g->verein_id => $spielObj->verein_g->vereinsname, $spielObj->verein_h->verein_id => $spielObj->verein_h->vereinsname);
+
+		foreach($spielObj->relevanteThemen as $row => $thema) {
+			$templateParams['forenThemen'][$thema['thema_id']] = $thema['titel'];
+		}
+		
+		if(isset($_POST['SpielFehlentscheidung'])) {
+			$valid = true;
+			foreach($templateParams['fehlentscheidungen'] as $row => $fehlentscheidung) {
+				if(isset($_POST['SpielFehlentscheidung'][$row]['spiel_fehlentscheidung_id']) && $_POST['SpielFehlentscheidung'][$row]['spiel_fehlentscheidung_id'] == $fehlentscheidung['spiel_fehlentscheidung_id']) {
+					$fehlentscheidung->attributes = $_POST['SpielFehlentscheidung'][$row];
+				} else {
+					//echo $_POST['Spiel'][$row]['spiel_id'].' - '.$spiel['spiel_id'];
+					echo "Zurodnungsfehler!";
+				}
+				// validate() && $valid ergibt TRUE wenn beides auf True steht. Sonst False und bleibt False
+				$valid = $fehlentscheidung->validate() && $valid;
+			}
+			
+			if($valid) {
+				$save = true;
+				foreach($templateParams['fehlentscheidungen'] as $row => $fehlentscheidung) {
+					$save = $templateParams['fehlentscheidungen'][$row]->save(false) && $save;
+				}
+			}
+			
+			if($save) {
+				Yii::app()->user->setFlash('aenderungen', 'Ihre Änderungen wurden gespeichert');
+			}
+		}
+		
+		$this->render('update', $templateParams);
+	}
+}
+?>

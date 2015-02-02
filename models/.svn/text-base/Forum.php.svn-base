@@ -1,0 +1,177 @@
+<?php
+
+/**
+ * This is the model class for table "forum".
+ *
+ * The followings are the available columns in table 'forum':
+ * @property string $forum_id
+ * @property integer $forum_id_alt
+ * @property string $forum_name
+ * @property integer $forum_typ
+ * @property integer $reihenfolge
+ * @property integer $anzeige_flag
+ * @property integer $online_flag
+ */
+class Forum extends CActiveRecord
+{
+	
+	private $_letztesThema;
+
+    public function getLetztesThema(){
+    	return $this->_letztesThema;
+    }
+
+    public function setLetztesThema($letztesThema){
+        $this->_letztesThema = $letztesThema;
+    }
+
+	
+	/**
+	 * Returns the static model of the specified AR class.
+	 * @param string $className active record class name.
+	 * @return Forum the static model class
+	 */
+	public static function model($className=__CLASS__)
+	{
+		return parent::model($className);
+	}
+
+	/**
+	 * @return string the associated database table name
+	 */
+	public function tableName()
+	{
+		return 'forum';
+	}
+
+	/**
+	 * @return array validation rules for model attributes.
+	 */
+	public function rules()
+	{
+		// NOTE: you should only define rules for those attributes that
+		// will receive user inputs.
+		return array(
+			array('forum_name, forum_typ, reihenfolge, anzeige_flag, online_flag', 'required'),
+			array('forum_typ, reihenfolge, anzeige_flag, online_flag, letzte_thema_id', 'numerical', 'integerOnly'=>true),
+			array('forum_name', 'length', 'max'=>150),
+			array('icon', 'length', 'max'=>150),
+			// The following rule is used by search().
+			// Please remove those attributes that should not be searched.
+			array('forum_id, forum_name, forum_typ, reihenfolge, anzeige_flag, online_flag', 'safe', 'on'=>'search'),
+		);
+	}
+
+
+	/**
+	 * @return array relational rules.
+	 */
+	public function relations()
+	{
+		// NOTE: you may need to adjust the relation name and the related
+		// class name for the relations automatically generated below.
+		return array(
+		);
+	}
+
+	/**
+	 * @return array customized attribute labels (name=>label)
+	 */
+	public function attributeLabels()
+	{
+		return array(
+			'forum_id' 			=> 'Forum',
+			'forum_id_alt'		=> 'Forum Id Alt',
+			'forum_name' 		=> 'Forum Name',
+			'icon' 				=> 'Icon',
+			'forum_typ' 		=> 'Forum Typ',
+			'reihenfolge' 		=> 'Reihenfolge',
+			'anzeige_flag' 		=> 'Anzeige Flag',
+			'online_flag' 		=> 'Online Flag',
+			'letzte_thema_id' 	=> 'Letztes Thema',
+		);
+	}
+
+	/**
+	 * Retrieves a list of models based on the current search/filter conditions.
+	 * @return CActiveDataProvider the data provider that can return the models based on the search/filter conditions.
+	 */
+	public function search()
+	{
+		// Warning: Please modify the following code to remove attributes that
+		// should not be searched.
+
+		$criteria=new CDbCriteria;
+
+		$criteria->compare('forum_id',$this->forum_id,true);
+		$criteria->compare('forum_id_alt',$this->forum_id_alt);
+		$criteria->compare('forum_name',$this->forum_name,true);
+		$criteria->compare('icon',$this->icon,true);
+		$criteria->compare('forum_typ',$this->forum_typ);
+		$criteria->compare('reihenfolge',$this->reihenfolge);
+		$criteria->compare('anzeige_flag',$this->anzeige_flag);
+		$criteria->compare('online_flag',$this->online_flag);
+		$criteria->compare('letzte_thema_id',$this->letzte_thema_id);
+		$criteria->compare('role',$this->role);
+
+		return new CActiveDataProvider($this, array(
+			'criteria'=>$criteria,
+		));
+	}
+	
+	public static function buildLetzteAntwort($data,$forum_id) {
+		
+		if(isset($data['anzahl_antworten']) && ($data['anzahl_antworten']>Yii::app()->params['page_size_beitrag'])) {
+			$page = ceil($data['anzahl_antworten']/Yii::app()->params['page_size_beitrag']);
+		} else {
+			$page = 1;
+		}
+		
+		$html = 'von <a href="/profil/index?user='.$data['letzte_user_nick'].'" class="fn">'.$data['letzte_user_nick'].'</a>, ';
+		$html.= 'am <a href="'.CHtml::normalizeUrl(array('forum/thema', 'seo' => WTFunctions::normalisiereString($data['titel']),'board_id' => $forum_id, 'thema_id' => $data['thema_id'], 'page' => $page, '#'=>'b'.$data['letzte_beitrag_id'])).'" class="fn">'.WTFunctions::getDatumZeit($data['letzte_beitrag_zeit']).'</a>';
+		return $html;
+	}	
+
+	public function buildLink($data,$type=false) {
+		$output = '-';
+		if($type=='thread') {
+			$output = CHtml::link($data['titel'],array('forum/thema', 'forum_id' => $forum->forum_id, 'thema_id'=>$data['letzte_thema_id']), array('class'=>'forum')); 
+		}
+		
+		return $output;
+	}	
+	
+	public function getForumLink() {
+		return CHtml::normalizeUrl(array('forum/view', 'seo' => WTFunctions::normalisiereString($this->forum_name), 'id' => $this->forum_id));
+	}	
+	
+
+	public function aktualisiereForum($boardId) {
+		
+		$forum 		= $this->findByPk($boardId);
+		
+		$attributes = array();
+		$conditions = array('order' => 'letzte_beitrag_zeit DESC');
+		
+		if($thema = ForumThema::Model(null,$boardId)->findByAttributes($attributes,$conditions)) {
+			$forum->letzte_thema_id	= $thema->thema_id;
+		} else {
+			$forum->letzte_thema_id		= 0;
+			//$forum->letzte_user_nick	= '';
+		}
+		
+		$forum->save();
+	}
+	
+	protected function afterFind () { 
+		if(empty($this->icon)) {
+			$this->icon = '/images/wt_forum.png'; 
+			 
+		}
+		
+		if(!Yii::app()->user->checkAccess($this->role) && (self::model()->scenario != 'view_foren')) {
+			throw new CHttpException(403);
+		}
+		parent::afterFind();
+	}	
+}

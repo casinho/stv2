@@ -1,0 +1,291 @@
+<?php
+class WTFunctions {
+	/**
+	 * Wrapper-Methode zum ersetzen von Sonderzeichen,
+	 * ausführen von Kleinschreibung und
+	 * Abschneiden von Leerzeichen am anfang und ende des Strings
+	 * @var string Der zu normalisierende String
+	 * @return string Der normalisierte String
+	 */
+	public static function normalisiereString($string = null) {
+		if(empty($string)) {
+			return '';
+		}
+
+		$multibyte = (function_exists('mb_strtolower')) ? true : false;
+		$multibyte = false;
+		
+		$string = trim($string);
+		$string = WTFunctions::entferneSonderzeichen($string);
+		$string = ($multibyte) ? mb_strtolower($string) : strtolower($string);		
+		
+		return $string; 
+	}
+	
+	/**
+	 * Ersetzt alle "Non-Word-Character" ausser "-" (Minus) durch "-" (Minus).
+	 * Ein Doppeltes "-" (Minus) ("--") wird anschliessend durch "-" ersetzt.
+	 * @var string Der String in dem Sonderzeichen ersetzt werden sollen
+	 * @return string Der String ohne Sonderzeichen
+	 */
+	public static function entferneSonderzeichen($string = null) {
+		if(empty($string)) {
+			return '';
+		}
+		// aus sonderzeichen html entitaeten erstellen
+		$string = htmlentities($string, ENT_QUOTES, 'UTF-8');
+		
+		// html entitaeten das "&", ";" und entitaetennamen abschneiden
+		$string = preg_replace('~&([a-z]{1,2})(acute|cedil|circ|grave|lig|orn|ring|slash|th|tilde|uml);~i', '$1' , $string);
+		
+		// html entitaeten, welche einen utf-8 code erhalten haben entfernen
+		$string = preg_replace('~&#([0-9]{1,4});~i', '' , $string);
+		
+		// htmlentities ersetzt keine leerzeichen. Wir wollen aber ein "-" (Minus);
+		//$sucheUndErsetze = array(' ' => '-');
+		
+		/*
+		$sucheUndErsetze = array(
+			'ü' => 'ue',
+			'ö' => 'oe',
+			'ä' => 'ae',
+			'ß'	=> 'ss',
+		);
+		*/
+		//$string = strtr($string, $sucheUndErsetze);
+		
+		// was jetzt noch an "non-word charactern" uebrig ist, einfach entfernen.
+		// Leerzeichen zaehlen dazu.
+		$string = preg_replace('#[^\w-]#ui', '-', $string);
+		/*
+		
+		$string = preg_replace('~[^0-9a-z]+~i', '-', $string);
+		*/
+		
+		
+		return preg_replace('#(-){2,}#i', '-', $string);
+	}
+	
+	function Slug($string) {
+    	return preg_replace('~[^0-9a-z]+~i', '-', $string);
+	}
+	
+	
+	public static function shortText($string = NULL,$lenght = 500) {
+		if(strlen($string) > $lenght) {
+	        $string = substr($string,0,$lenght)."...";
+	        $string_ende = strrchr($string, " ");
+	        $string = str_replace($string_ende," ...", $string);
+	    }
+	    return $string;
+	}
+
+
+	public static function getDatenFuerSpieltagsAnzeigeBySaisonId($saisonId, $gesamtAnzeige = false,$saisonAnzeige = false) {
+		$spieltagsAnzeige['gesamtAnzeige'] = $gesamtAnzeige;
+		$spieltagsAnzeige['saisonAnzeige'] = $saisonAnzeige;
+        $spieltagsAnzeige['aktuellerSpieltag'] = Spiel::model()->getNummerAktuellerSpieltag($saisonId);
+        if($gesamtAnzeige == true) {
+        	$spieltagsAnzeige['gewaehlterSpieltag'] = Yii::app()->request->getParam('spieltag', 35);
+        } else {
+        	$spieltagsAnzeige['gewaehlterSpieltag'] = Yii::app()->request->getParam('spieltag', $spieltagsAnzeige['aktuellerSpieltag']);
+        }
+        $saison = Saison::getAnzahlSpieltageBySaisonId($saisonId);
+        $spieltagsAnzeige['anzahlSpieltage'] 	= $saison->anzahlSpieltage;
+        $spieltagsAnzeige['saisonId'] 			= $saisonId;
+        if($saisonAnzeige == true) {
+        	$spieltagsAnzeige['saisons'] 		= Saison::model()->getAlleSaisons();
+        }
+        return $spieltagsAnzeige;
+	}
+	
+	public static function getSzenentextBySzene($szene) {
+	    if($szene['kategorie_id'] == 1) { //Elfmeter
+	        if($szene['tore_alt_h'] < $szene['tore_neu_h']) {
+	            return "Nicht gegebener Elfmeter für ".$szene['verein_h']->vereinsname;
+	        } elseif($szene['tore_alt_h'] > $szene['tore_neu_h']) {
+	            return "Zu Unrecht gegebener Elfmeter für ".$szene['verein_h']->vereinsname;
+	        } elseif($szene['tore_alt_g'] < $szene['tore_neu_g']) {
+	            return "Nicht gegebener Elfmeter für ".$szene['verein_g']->vereinsname;
+	        } elseif($szene['tore_alt_g'] > $szene['tore_neu_g']) {
+	            return "Zu Unrecht gegebener Elfmeter für ".$szene['verein_g']->vereinsname;
+	        }
+	    } elseif($szene['kategorie_id'] == 2) { //Foul
+	        if($szene['tore_alt_h'] < $szene['tore_neu_h']) {
+    	        return "Angebliches Foul, verweigertes Tor für ".$szene['verein_h']->vereinsname;
+	        } elseif($szene['tore_alt_h'] > $szene['tore_neu_h']){
+	            return "Trotz Foulspiels gegebener Treffer für  ".$szene['verein_h']->vereinsname;
+	        } elseif($szene['tore_alt_g'] < $szene['tore_neu_g']) {
+	            return "Angebliches Foul, verweigertes Tor für ".$szene['verein_g']->vereinsname;
+	        } elseif($szene['tore_alt_g'] > $szene['tore_neu_g']) {
+	            return "Trotz Foulspiels gegebener Treffer für ".$szene['verein_g']->vereinsname;
+	        }
+	    } elseif($szene['kategorie_id'] == 3) { //Freistoß
+	        if($szene['tore_alt_h'] < $szene['tore_neu_h']) {
+	            return "nicht gegebener Freistoss - FEHLER ".$szene['verein_h']->vereinsname;
+	        } elseif($szene['tore_alt_h'] > $szene['tore_neu_h']) {
+    	        return "Durch unberechtigten Freistoss erzielter Treffer für ".$szene['verein_h']->vereinsname;
+    	    } elseif($szene['tore_alt_g'] < $szene['tore_neu_g']) {
+	            return "Nicht gegebener Freistoss - FEHLER ".$szene['verein_g']->vereinsname;
+	        } elseif($szene['tore_alt_g'] > $szene['tore_neu_g']) {
+	            return "Durch unberechtigten Freistoss erzielter Treffer für  ".$szene['verein_g']->vereinsname;
+	        }
+	    } elseif($szene['kategorie_id'] == 4) { //Torlinie
+	        if($szene['tore_alt_h'] < $szene['tore_neu_h']) {
+	            return "Kein Tor trotz überschrittener Linie für ".$szene['verein_h']->vereinsname;
+	        } elseif($szene['tore_alt_h'] > $szene['tore_neu_h']) {
+	            return "Tor trotz nicht überschrittener Linie für ".$szene['verein_h']->vereinsname;
+	        } elseif($szene['tore_alt_g'] < $szene['tore_neu_g']) {
+	            return "Kein Tor trotz überschrittener Linie für ".$szene['verein_g']->vereinsname;
+	        } elseif($szene['tore_alt_g'] > $szene['tore_neu_g']) {
+	            return "Tor trotz nicht überschrittener Linie für ".$szene['verein_g']->vereinsname;
+	        }
+	    } elseif($szene['kategorie_id'] == 5) { //Vorteil
+	        if($szene['tore_alt_h'] < $szene['tore_neu_h']) {
+	            return "Nicht gegebener Treffer für ".$szene['verein_h']->vereinsname;
+	        } elseif($szene['tore_alt_h'] > $szene['tore_neu_h']) {
+	            return "Zu Unrecht gegebener Treffer ".$szene['verein_h']->vereinsname;
+	        } elseif($szene['tore_alt_g'] < $szene['tore_neu_g']) {
+	            return "Nicht gegebener Treffer für ".$szene['verein_g']->vereinsname;
+	        } elseif($szene['tore_alt_g'] > $szene['tore_neu_g']) {
+	            return "Zu Unrecht gegebener Treffer für ".$szene['verein_g']->vereinsname;
+	        }
+	    } elseif($szene['kategorie_id'] == 6) { //Abseits
+	        if($szene['tore_alt_h'] < $szene['tore_neu_h']) {
+	            return "Vermeintliches Abseits, Tor nicht gegeben für ".$szene['verein_h']->vereinsname;
+	        } elseif($szene['tore_alt_h'] > $szene['tore_neu_h']) {
+	            return "Abseitstor von ".$szene['verein_h']->vereinsname;
+	        } elseif($szene['tore_alt_g'] < $szene['tore_neu_g']) {
+	            return "Vermeintliches Abseits, Tor nicht gegeben für ".$szene['verein_g']->vereinsname;
+	        } elseif($szene['tore_alt_g'] > $szene['tore_neu_g']) {
+	            return "Abseitstor von ".$szene['verein_g']->vereinsname;
+	        }
+	    }
+	    if($szene['daumen'] == 0) {
+	        return 'Noch nicht entschieden (Deadline: Dienstag 10:00 Uhr)';
+	    } elseif($szene['daumen'] == 1) {
+	        return 'Richtig entschieden!';
+	    } elseif($szene['daumen'] == 3) {
+	        return 'Ungelöst / nicht relevant';
+	    }
+	}
+	
+	public static function createRandomString($length = 5) {
+
+		mt_srand((double)microtime()*1000000);
+
+		$letter_small	= range('a','z');
+		$letter_big   	= range('A','Z');
+		$int		 	= range(0,9);
+
+		// Anzahl der Arrays bestimmen
+
+		$ls_max = count($letter_small)-1;
+		$lb_max = count($letter_big)-1;
+		$in_max = count($int)-1;
+
+		$var_RandomString = '';
+
+		for($i = 0; $i < $length; $i+=1) {
+			$var_RandomString.= $letter_small[mt_rand(0,$ls_max)];
+			$var_RandomString.= $letter_big[mt_rand(0,$lb_max)];
+			$var_RandomString.= $int[mt_rand(0,$in_max)];
+		}
+		$output = str_shuffle($var_RandomString);
+		return $output;
+	}
+	
+	public static function getDatumZeit($timestamp,$dateWidth='medium',$timewidth='short') {
+		$dateFormatter = Yii::app()->getDateFormatter();
+		return $dateFormatter->formatDateTime($timestamp, $dateWidth, $timewidth);
+	}	
+
+	public static function setTableClass($status,$row,$class='') {
+		
+		if($row%2==0) {
+			$css = 'odd pn';
+		} else {
+			$css = 'even pn';
+		}
+		
+		if(empty($status)) {
+			$css.= ' '.$class; 
+		} 
+		return $css;
+	}
+	
+	public static function getUserLink($user_nick = 0, $showSystemUser = false, $htmlOptions = array()) {
+		if(!empty($user_nick)) {
+			$link =  CHtml::normalizeUrl(array('profil/index', 'user' => $user_nick));
+			echo CHtml::link($user_nick,CHtml::encode($link),$htmlOptions);
+			return true;
+		} else {
+			if($showSystemUser === true) {
+				return 'System';
+			}
+		}
+	}
+
+	public static function begegnungsBilder($data,$titel='',$htmlOptions=array()) {
+		$html = '';
+		
+		if(isset($data['verein_id_h'])) {
+			$titel = $data['titel'];
+			//$html.= '<span class="dib">';
+			$html.= CHtml::image('/images/vereinswappen/20x20/'.$data['verein_id_h'].'.png',$titel,array('class'=>'mr5'));
+			$html.= '<span class="forum-threadansicht-ergebnis">'.$data['tore_h'].' : '.$data['tore_g'].'</span>';
+			$html.= CHtml::image('/images/vereinswappen/20x20/'.$data['verein_id_g'].'.png',$titel,array('class'=>'ml5'));
+		} else {
+			$html = '';
+		}
+		return $html;
+	}	
+	
+	public static function getThemaIcon($flag) {
+		
+		switch($flag) {
+			case 1:
+				$img = ''; 
+				break;
+			case 2:
+				$img = '';
+				break;
+			case 3:
+				$img = '';
+				break;
+			default:
+				$img = '/images/forum/diskussion.png';
+		}
+		return $img;	
+	}
+	
+	public static function getThemaCSSClass($flag,$geschlossen = 0) {	
+		$class = 'forum_sprite ';
+		
+		#echo "css: ".$flag;
+		#echo "given: ".$flag;
+		if($geschlossen != 0) {
+			$class.= 'thema_geschlossen';
+		} else {
+			switch($flag) {
+				case 1:
+					$class.= 'thema_strittig'; 
+					break;
+				case 2:
+					$class.= 'thema_umfrage';
+					break;
+				case 3:
+					$class.= 'thema_wichtig';
+					break;
+				case 4:
+					$class.= 'thema_geschlossen';
+					break;				
+				default:
+					$class.= 'thema_diskussion';
+			}
+		}
+		return $class;	
+	}	
+	
+}
+?>

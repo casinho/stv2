@@ -1,0 +1,33 @@
+<?php
+class AdmincenterController extends Controller {
+	public function filters() {
+		return array(
+			'accessControl', // perform access control for CRUD operations
+		);
+	}
+
+	public function accessRules() {
+		return array(
+			array('allow',  // allow all users to perform 'index' and 'view' actions
+				'actions'=>array('index'),
+				'roles'=>array('admin'),
+			),
+			array('deny',  // deny all users
+				'users'=>array('*'),
+			),
+		);
+	}
+	
+	public function actionIndex() {
+		$this->breadcrumbs = array(
+			'Admin-Center'
+		);
+		$this->render('index');
+	}
+	
+	public function actionSpieltag() {
+		$this->breadcrumbs = array('Admin-Center' => array('/admin-center'),'Ligaverwaltung: Spieltag');
+		$this->render('index');
+	}
+}
+?>

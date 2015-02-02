@@ -1,0 +1,382 @@
+<?php
+
+/**
+ * This is the model class for table "user".
+ *
+ * The followings are the available columns in table 'user':
+ * @property string $user_id
+ * @property integer $user_id_alt
+ * @property string $user_nick
+ * @property string $passwort
+ * @property string $anrede
+ * @property string $vorname
+ * @property string $nachname
+ * @property string $str
+ * @property string $plz
+ * @property string $ort
+ * @property string $user_mail
+ * @property string $website
+ * @property integer $sterne
+ * @property integer $sterne_real
+ * @property string $sterne_order
+ * @property integer $anzahl_beitraege
+ * @property string $avatar
+ * @property string $avatar_kt
+ * @property string $signatur
+ * @property integer $aktiv_flag
+ * @property integer $blogger_flag
+ * @property integer $chef_flag
+ * @property integer $kontroll_flag
+ * @property integer $kompetenz_flag
+ * @property string $bestaetigung
+ * @property string $datum_registriert
+ * @property string $datum_bearbeitet
+ * @property string $tokenuser
+ * @property string $verein_id
+ *
+ * The followings are the available model relations:
+ * @property Beitrag[] $beitrags
+ * @property Note[] $notes
+ * @property SpielBewertet[] $spielBewertets
+ * @property Spielernoten[] $spielernotens
+ * @property TippGesamt[] $tippGesamts
+ * @property User2voting[] $user2votings
+ */
+class User extends CActiveRecord
+{
+	/**
+	 * Returns the static model of the specified AR class.
+	 * @param string $className active record class name.
+	 * @return User the static model class
+	 */
+	
+	public $neues_passwort1;
+	public $neues_passwort2;
+	public $altes_passwort;
+	
+	
+	public static function model($className=__CLASS__)
+	{
+		return parent::model($className);
+	}
+
+	/**
+	 * @return string the associated database table name
+	 */
+	public function tableName()
+	{
+		return 'user';
+	}
+
+	/**
+	 * @return array validation rules for model attributes.
+	 */
+	public function rules()
+	{
+		// NOTE: you should only define rules for those attributes that
+		// will receive user inputs.
+		return array(
+			array('user_id_alt, sterne, sterne_real, anzahl_beitraege, aktiv_flag, sperr_flag, blogger_flag, chef_flag, kontroll_flag, kompetenz_flag', 'numerical', 'integerOnly' => true),
+			array('passwort,vorname,nachname,user_mail', 'required'),
+			array('user_nick', 'length', 'max'=>30),
+			array('website, avatar, avatar_kt, bestaetigung, tokenuser', 'length', 'max'=>255),
+			array('anrede, plz, verein_id', 'length', 'max'=>10),
+			array('vorname, nachname', 'length', 'max'=>150),
+			array('str', 'length', 'max'=>120),
+			array('ort', 'length', 'max'=>100),
+			array('user_mail', 'length', 'max'=>200),
+			array('user_mail', 'email'),
+			array('sterne_order', 'length', 'max'=>11),
+			array('signatur, datum_registriert, datum_bearbeitet', 'safe'),
+			// The following rule is used by search().
+			// Please remove those attributes that should not be searched.
+			array('user_id, user_id_alt, user_nick, passwort, anrede, vorname, nachname, str, plz, ort, user_mail, website, sterne, sterne_real, sterne_order, anzahl_beitraege, avatar, avatar_kt, signatur, aktiv_flag, blogger_flag, chef_flag, kontroll_flag, kompetenz_flag, bestaetigung, datum_registriert, datum_bearbeitet, tokenuser, verein_id', 'safe', 'on'=>'search'),
+			
+			// update passwort
+			/*
+			array('neues_passwort1, neues_passwort2', 'required', 'on'=>'insert'),
+			array('neues_passwort1, neues_passwort2', 'length', 'min'=>5, 'max'=>40), 
+			array('neues_passwort1', 'compare', 'compareAttribute'=>'neues_passwort2'),			
+			*/
+ 			
+			array('neues_passwort1', 'length', 'max'=>50,  'on'=>'changePassword'),
+    		array('neues_passwort1', 'compare', 'compareAttribute'=>'neues_passwort2', 'on'=>'changePassword'),
+    		array('neues_passwort2', 'safe',  'on'=>'changePassword'),
+    		array('neues_passwort1, neues_passwort2', 'required',  'on'=>'changePassword'),			
+    		array('altes_passwort', 'compareAltesPasswort',  'on'=>'changePassword'),
+			
+		);
+	}
+	
+	public function compareAltesPasswort() {
+		if(!$this->validatePassword($this->altes_passwort)) {
+			$this->addError('altes_passwort','Das alte Passwort stimmt nicht mit dem aktuellen Passwort überein.');
+		}
+	}
+	
+	/**
+	 * @return array relational rules.
+	 */
+	public function relations()
+	{
+		// NOTE: you may need to adjust the relation name and the related
+		// class name for the relations automatically generated below.
+		return array(
+			'beitrags' => array(self::HAS_MANY, 'Beitrag', 'user_id'),
+			'notes' => array(self::HAS_MANY, 'Note', 'user_id'),
+			'spielBewertets' => array(self::HAS_MANY, 'SpielBewertet', 'user_id'),
+			'spielernotens' => array(self::HAS_MANY, 'Spielernoten', 'user_id'),
+			'tippGesamts' => array(self::HAS_MANY, 'TippGesamt', 'user_id'),
+			'user2votings' => array(self::HAS_MANY, 'User2voting', 'user_id'),
+		);
+	}
+
+	/**
+	 * @return array customized attribute labels (name=>label)
+	 */
+	public function attributeLabels()
+	{
+		return array(
+			'user_id' => 'User',
+			'user_id_alt' => 'User Id Alt',
+			'user_nick' => 'User Nick',
+			'passwort' => 'Passwort',
+			'anrede' => 'Anrede',
+			'vorname' => 'Vorname',
+			'nachname' => 'Nachname',
+			'str' => 'Str',
+			'plz' => 'Plz',
+			'ort' => 'Ort',
+			'user_mail' => 'User Mail',
+			'website' => 'Website',
+			'sterne' => 'Sterne',
+			'sterne_real' => 'Sterne Real',
+			'sterne_order' => 'Sterne Order',
+			'anzahl_beitraege' => 'Anzahl Beitraege',
+			'avatar' => 'Avatar',
+			'avatar_kt' => 'Avatar Kt',
+			'signatur' => 'Signatur',
+			'aktiv_flag' => 'Aktiv Flag',
+			'sperr_flag' => 'Gesperrt Flag',
+			'blogger_flag' => 'Blogger Flag',
+			'tr_erinnerung_flag' => 'Ja, ich möchte per E-Mail benachrichtigt werden, falls ich vergessen habe meine Tipps abzugeben.',
+			'pn_erinnerung_flag' => 'Ja, ich möchte per E-Mail benachrichtigt werden, wenn ich eine neue Nachricht erhalte.',
+			'chef_flag' => 'Chef Flag',
+			'kontroll_flag' => 'Kontroll Flag',
+			'kompetenz_flag' => 'Kompetenz Flag',
+			'bestaetigung' => 'Bestaetigung',
+			'datum_registriert' => 'Datum Registriert',
+			'datum_bearbeitet' => 'Datum Bearbeitet',
+			'tokenuser' => 'Tokenuser',
+			'verein_id' => 'Verein',
+
+			'neues_passwort1' => 'Neues Passwort',
+			'neues_passwort2' => 'Passwort wiederholen',
+		
+		);
+	}
+
+	/**
+	 * Retrieves a list of models based on the current search/filter conditions.
+	 * @return CActiveDataProvider the data provider that can return the models based on the search/filter conditions.
+	 */
+	public function search()
+	{
+		// Warning: Please modify the following code to remove attributes that
+		// should not be searched.
+
+		$criteria=new CDbCriteria;
+
+		$criteria->compare('user_id',$this->user_id,true);
+		$criteria->compare('user_id_alt',$this->user_id_alt);
+		$criteria->compare('user_nick',$this->user_nick,true);
+		$criteria->compare('passwort',$this->passwort,true);
+		$criteria->compare('anrede',$this->anrede,true);
+		$criteria->compare('vorname',$this->vorname,true);
+		$criteria->compare('nachname',$this->nachname,true);
+		$criteria->compare('str',$this->str,true);
+		$criteria->compare('plz',$this->plz,true);
+		$criteria->compare('ort',$this->ort,true);
+		$criteria->compare('user_mail',$this->user_mail,true);
+		$criteria->compare('website',$this->website,true);
+		$criteria->compare('sterne',$this->sterne);
+		$criteria->compare('sterne_real',$this->sterne_real);
+		$criteria->compare('sterne_order',$this->sterne_order,true);
+		$criteria->compare('anzahl_beitraege',$this->anzahl_beitraege);
+		$criteria->compare('avatar',$this->avatar,true);
+		$criteria->compare('avatar_kt',$this->avatar_kt,true);
+		$criteria->compare('signatur',$this->signatur,true);
+		$criteria->compare('aktiv_flag',$this->aktiv_flag);
+		$criteria->compare('blogger_flag',$this->blogger_flag);
+		$criteria->compare('chef_flag',$this->chef_flag);
+		$criteria->compare('kontroll_flag',$this->kontroll_flag);
+		$criteria->compare('kompetenz_flag',$this->kompetenz_flag);
+		$criteria->compare('tr_erinnerung_flag',$this->tr_erinnerung_flag);
+		$criteria->compare('pn_erinnerung_flag',$this->pn_erinnerung_flag);
+		$criteria->compare('bestaetigung',$this->bestaetigung,true);
+		$criteria->compare('datum_registriert',$this->datum_registriert,true);
+		$criteria->compare('datum_bearbeitet',$this->datum_bearbeitet,true);
+		$criteria->compare('tokenuser',$this->tokenuser,true);
+		$criteria->compare('verein_id',$this->verein_id,true);
+
+		return new CActiveDataProvider($this, array(
+			'criteria'=>$criteria,
+		));
+	}
+	/*
+	public function afterValidate() {
+    	parent::afterValidate();
+    	if(($this->getScenario() === 'changePassword')) {
+	        $this->passwort = $this->hashPassword($this->neues_passwort1);
+    	}
+	}*/	
+	/*
+	public function afterFind() {
+		// hashed passes!
+		$this->altes_passwort = $this->passwort;
+		$this->passwort = NULL;
+	}
+ 	
+	public function beforeSave() { 
+		// in diesem falle, wird das alte passwort genutzt
+		if(empty($this->neues_passwort1) && empty($this->neues_passwort2) && !empty($this->passwort)) {
+			$this->passwort = $this->neues_passwort1 = $this->altes_passwort;
+			return parent::beforeSave(); 	
+		} 
+	} 	
+	*/
+	public function checkActive() {
+		if($this->aktiv_flag != 1) {
+			return false;
+		} else {
+			return true;
+		}
+	}
+
+	public function checkBanned() {
+		if($this->sperr_flag > 0) {
+			return false;
+		} else {
+			return true;
+		}
+	}
+	
+	
+	public function getUserJSON($suchstring = '') {
+		
+		if(Yii::app()->request->isAjaxRequest){
+			
+			if(empty($suchstring)) {
+				$term = Yii::app()->request->getQuery('term');
+			} else {
+				$term = $suchstring;
+			}
+			
+			$variants = array(); 
+			$criteria = new CDbCriteria; 
+			$criteria->select='user_nick,user_id'; 
+			$criteria->addSearchCondition('user_nick',$term.'%',false); 
+			$tags = User::model()->findAll($criteria); 
+
+			
+			if(!empty($tags)) { 
+				foreach($tags as $tag) { 
+					$variants[] = array('name' => $tag->attributes['user_nick'], 'id' => $tag->attributes['user_id']); 
+				} 
+			} 
+		
+			
+			header('Content-type: application/json');  			
+			echo CJSON::encode($variants);
+			Yii::app()->end();
+			
+		}
+	}
+
+	
+	public function actionSearch($term) { 
+		if(Yii::app()->request->isAjaxRequest && !empty($term)) { 
+			$variants = array(); 
+			$criteria = new CDbCriteria; 
+			$criteria->select='tag'; 
+			$criteria->addSearchCondition('tag',$term.'%',false); 
+			$tags = tagsModel::model()->findAll($criteria); 
+			if(!empty($tags)) { 
+				foreach($tags as $tag) { 
+					$variants[] = $tag->attributes['tag']; 
+				} 
+			} 
+			echo CJSON::encode($variants); 
+		} else {
+			throw new CHttpException(400,'Invalid request. Please do not repeat this request again.');
+		} 
+	}	
+	
+	
+/*
+ * @return boolean validate user
+ */
+	public function validatePassword($password){
+		return $this->hashPassword($password) === $this->passwort;
+	}
+	
+	/**
+	 * @return hashed value
+	 */
+	
+	public function hashPassword($password){
+		//$salt = $this->getSaltKey();
+        //$salt = (md5($salt.md5($password)));
+        $salt = md5($password);
+        return $salt;
+	}
+
+	public static function getUserCriteria() {
+		$criteria = new CDbCriteria;
+	 	$criteria->select = '*';
+	 	$criteria->condition = 'aktiv_flag = 1';
+		return $criteria;
+	}
+	
+	public static function getUserSort() {
+		$sort = new CSort;
+		$sort->defaultOrder = 'anzahl_beitraege DESC';
+		$sort->attributes = array(
+			'nickname' => array(
+				'asc'=>'user_nick',
+				'desc'=>'user_nick DESC',
+			),
+			'posts' => array(
+				'asc'=>'anzahl_beitraege',
+				'desc'=>'anzahl_beitraege DESC',
+			),
+			'rang' => array(
+				'asc'=>'sterne',
+				'desc'=>'sterne DESC',
+			),
+			'mitglied_seit' => array(
+				'asc'=>'datum_registriert',
+				'desc'=>'datum_registriert DESC',
+			),
+		);
+		
+		return $sort;
+	}
+	
+	public function getUser() {
+		return User::model()->findAll(self::getUserCriteria());
+    }
+    
+    public static function getUserTipperinnerung() {
+        $user = User::model()->findAll(array(
+                'condition' => 'tr_erinnerung_flag = 1 AND aktiv_flag = 1 AND user_mail != "" AND sperr_flag = 0 AND user_mail != "xxx"'
+        ));
+        return $user;
+    }
+    
+    public static function getUserLinkName($user_nick = 0) {
+        $verein = '/profil/index?user='.$user_nick;
+        return $verein;
+    }
+
+}

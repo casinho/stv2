@@ -1,0 +1,144 @@
+<?php
+/**
+ * Controller is the customized base controller class.
+ * All controller classes for this application should extend from this base class.
+ */
+class Controller extends CController
+{
+	/**
+	 * @var string the default layout for the controller view. Defaults to '//layouts/column1',
+	 * meaning using a single column layout. See 'protected/views/layouts/column1.php'.
+	 */
+	public $layout='//layouts/column1';
+	/**
+	 * @var array context menu items. This property will be assigned to {@link CMenu::items}.
+	 */
+	public $menu=array();
+	public $openGraph=array();
+	/**
+	 * @var array the breadcrumbs of the current page. The value of this property will
+	 * be assigned to {@link CBreadcrumbs::links}. Please refer to {@link CBreadcrumbs::links}
+	 * for more details on how to specify this property.
+	 */
+	public $breadcrumbs=array();
+
+	public $subnaviTabellen = array(
+		array('label' => 'Wahre Tabelle', 'url' => array('/statistik/wahretabelle')),
+		array('label' => 'Fehlentscheidungen', 'url' => '/statistik/fehlentscheidungen'),
+		array('label' => 'Schiedsrichter', 'url' => array('/statistik/schiedsrichter')),
+		array('label' => 'Statistiken', 'url' => array('/statistik/index'), 'items' => array(
+		        array('label' => 'Treter', 'url' => array('/statistik/treter')),
+		        array('label' => 'Abseits', 'url' => array('/statistik/abseits')),
+		        array('label' => 'Chancen', 'url' => array('/statistik/chancen')),
+		        array('label' => 'Fairplay', 'url' => array('/statistik/antifairplay')),
+		        array('label' => 'Heim- / Gasttabelle', 'url' => array('/statistik/heimgasttabelle')),
+		        array('label' => 'Halbzeittabellen', 'url' => array('/statistik/halbzeittabelle')),
+		        array('label' => 'Formtabelle', 'url' => array('/statistik/formtabelle')),
+		)),
+		array('label' => 'Was ist die Wahre Tabelle?', 'url' => array('service/wasIstDieWahreTabelle'))
+	);
+	public $subnaviCommunity = array();
+	public $subnaviVerwaltung = array();
+	public $subnaviMobi = array();
+	public $contentNavigation = array();
+	
+	public function init() {
+		$this->subnaviVerwaltung[] = array('label' => 'Profil', 'url' => array('profil/index'), 'visible' => !Yii::app()->user->isGuest);
+		$this->subnaviVerwaltung[] = array('label' => 'Einstellungen', 'url' => array('profil/einstellungen'), 'visible' => !Yii::app()->user->isGuest); 
+		$this->subnaviVerwaltung[] = array('label' => 'Postfach', 'url' => array('postfach/index'), 'visible' => !Yii::app()->user->isGuest);
+		$this->subnaviVerwaltung[] = array('label' => 'Kompetenzteam-Center', 'url' => array('kompetenzteamcenter/index'), 'visible' => (Yii::app()->user->checkAccess('kt-mitglied') || Yii::app()->user->checkAccess('kt-admin') || Yii::app()->user->checkAccess('admin')));
+		$this->subnaviVerwaltung[] = array('label' => 'Admin-Center', 'url' => array('admincenter/index'), 'visible' => Yii::app()->user->checkAccess('admin'));
+		$this->subnaviVerwaltung[] =
+		array('label' => 'Interne Foren', 'items' => array(
+		        array('label' => 'Kompetenzteam', 'url' => array('forum/view', 'seo' => 'kompetenzteam', 'id' => '25'), 'visible' => (Yii::app()->user->checkAccess('kt-mitglied') || Yii::app()->user->checkAccess('kt-admin') || Yii::app()->user->checkAccess('admin'))),
+		        array('label' => 'Entwicklung', 'url' => array('forum/view', 'seo' => 'entwicklung', 'id' => '26'), 'visible' => (Yii::app()->user->checkAccess('kt-mitglied') || Yii::app()->user->checkAccess('kt-admin') || Yii::app()->user->checkAccess('admin'))),
+		        array('label' => 'Adminforum', 'url' => array('forum/view', 'seo' => 'adminforum', 'id' => '27'), 'visible' => Yii::app()->user->checkAccess('admin')),
+		));
+
+		$this->subnaviCommunity[] = 
+			array('label' => 'Foren', 'url' => array('forum/index'), 'items' => array(
+			        array('label' => 'Aktuelle Beiträge', 'url' => array('forum/letzte_beitraege')),
+			        array('label' => 'Allgemeine Foren', 'items' => array(
+			                array('label' => 'Wahretabelle.de', 'url' => array('forum/view', 'seo' => 'wahretabelle-de-forum', 'id' => '1')),
+			                array('label' => 'Fehlentscheidungen', 'url' => array('forum/view', 'seo' => 'fehlentscheidungsforum', 'id' => '23')),
+			                array('label' => 'CL-/EL', 'url' => array('forum/view', 'seo' => 'cl-el-forum', 'id' => '2')),
+			                array('label' => 'DFB-Pokal', 'url' => array('forum/view', 'seo' => 'dfb-pokal-forum', 'id' => '3')),
+			                array('label' => 'Nationalmannschaft', 'url' => array('forum/view', 'seo' => 'nationalmannschaft-forum', 'id' => '4')),
+			                array('label' => 'Zweite Liga', 'url' => array('forum/view', 'seo' => 'zweitligaforum', 'id' => '24')),
+			        )),
+			        array('label' => 'Vereinsforen', 'items' => array(
+			                array('label' => 'FC Augsburg', 'url' => array('forum/view', 'seo' => 'fc-augsburg', 'id' => '18')),
+			                array('label' => 'Bor. Dortmund', 'url' => array('forum/view', 'seo' => 'borussia-dortmund', 'id' => '5')),
+			                array('label' => 'Fortuna Düsseldorf', 'url' => array('forum/view', 'seo' => 'fortuna-duesseldorf', 'id' => '22')),
+			                array('label' => 'Eintracht Frankfurt', 'url' => array('forum/view', 'seo' => 'eintracht-frankfurt', 'id' => '21')),
+			                array('label' => 'SC Freiburg', 'url' => array('forum/view', 'seo' => 'sc-freiburg', 'id' => '16')),
+			                array('label' => 'Greuther Fürth', 'url' => array('forum/view', 'seo' => 'greuther-fuerth', 'id' => '20')),
+			                array('label' => 'Hamburger SV', 'url' => array('forum/view', 'seo' => 'hamburger-sv', 'id' => '19')),
+			                array('label' => 'Hannover 96', 'url' => array('forum/view', 'seo' => 'hannover-96', 'id' => '11')),
+			                array('label' => '1899 Hoffenheim', 'url' => array('forum/view', 'seo' => '1899-hoffenheim', 'id' => '15')),
+			                array('label' => 'Bayer Leverkusen', 'url' => array('forum/view', 'seo' => 'bayer-leverkusen', 'id' => '9')),
+			                array('label' => 'Mainz 05', 'url' => array('forum/view', 'seo' => 'mainz-05', 'id' => '17')),
+			                array('label' => 'Bor. M\'Gladbach', 'url' => array('forum/view', 'seo' => 'borussia-moenchengladbach', 'id' => '8')),
+			                array('label' => 'Bayern München', 'url' => array('forum/view', 'seo' => 'bayern-muenchen', 'id' => '6')),
+			                array('label' => '1. FC Nürnberg', 'url' => array('forum/view', 'seo' => 'fc-nuernberg', 'id' => '14')),
+			                array('label' => 'Schalke 04', 'url' => array('forum/view', 'seo' => 'schalke-04', 'id' => '7')),
+			                array('label' => 'VfB Stuttgart', 'url' => array('forum/view', 'seo' => 'vfb-stuttgart', 'id' => '10')),
+			                array('label' => 'Werder Bremen', 'url' => array('forum/view', 'seo' => 'werder-bremen', 'id' => '13')),
+			                array('label' => 'VfL Wolfsburg', 'url' => array('forum/view', 'seo' => 'vfl-wolfsburg', 'id' => '12')),
+			        )),
+			),);
+		$this->subnaviCommunity[] = 
+			array('label' => 'Tipprunde', 'url' => array('tipprunde/startseite'), 'items' => array(
+			        array('label' => 'Rangliste', 'url' => array('tipprunde/index')),
+			        array('label' => 'Tippabgabe', 'url' => array('tipprunde/tippabgabe'), 'visible' => !Yii::app()->user->isGuest),
+			        ));
+		$this->subnaviCommunity[] = 
+			array('label' => 'Mitglieder', 'url' => array('community/mitglieder'));
+		
+
+
+		$this->subnaviMobi = array(
+		        array('label' => 'Home', 'url' => array('index/')),
+		        array('label' => 'Wahre Tabelle', 'url' => array('/statistik/wahretabelle')),
+		        array('label' => 'Fehlentscheidungen', 'url' => '/statistik/fehlentscheidungen'),
+		        array('label' => 'Schiedsrichter', 'url' => array('/statistik/schiedsrichter')),
+		        array('label' => 'Statistiken', 'url' => array('/statistik/index')),
+		        array('label' => 'Was ist die Wahre Tabelle?', 'url' => array('/service/wasIstDieWahreTabelle')),
+		        array('label' => 'News', 'url' => array('/news/index')),
+		         
+		        array('label' => 'Foren', 'url' => array('/forum/index')),
+		        array('label' => 'Tipprunde', 'url' => array('/tipprunde/startseite')),
+		        array('label' => 'Mitglieder', 'url' => array('/community/mitglieder')),
+		         
+		        array('label' => 'Profil', 'url' => array('/profil/index'), 'visible' => !Yii::app()->user->isGuest),
+		        array('label' => 'Postfach', 'url' => array('/postfach/index'), 'visible' => !Yii::app()->user->isGuest),
+		         
+		);
+		
+	}
+	
+	protected function afterRender($view, &$output) { 
+		parent::afterRender($view,$output); //
+		//Yii::app()->facebook->addJsCallback($js); // use this if you are registering any $js code you want to run asyc 
+		Yii::app()->facebook->initJs($output); // this initializes the Facebook JS SDK on all pages 
+			
+		//print_r(Yii::app()->facebook);
+		if(!empty($this->openGraph)) {
+			$this->setOpenGraphTags();
+		}
+		if(isset($this->pageTitle)) {
+			Yii::app()->facebook->ogTags['og:title'] = $this->pageTitle;
+		}
+		Yii::app()->facebook->renderOGMetaTags(); // this renders the OG tags
+		return true; 
+	}
+
+	private function setOpenGraphTags() {
+		
+		foreach($this->openGraph as $k => $v) {
+			Yii::app()->facebook->ogTags['og:'.$k] = $v;
+		}		
+		return true;
+	}
+	
+}

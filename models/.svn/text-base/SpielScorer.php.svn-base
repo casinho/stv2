@@ -1,0 +1,165 @@
+<?php
+
+/**
+ * This is the model class for table "spiel_scorer".
+ *
+ * The followings are the available columns in table 'spiel_scorer':
+ * @property string $spiel_scorer_id
+ * @property string $spiel_id
+ * @property string $verein_id
+ * @property integer $spielort_flag
+ * @property string $spieler_id
+ * @property string $spielstand
+ * @property integer $minute
+ * @property integer $eigentor_flag
+ * @property integer $elfmeter_flag
+ *
+ * The followings are the available model relations:
+ * @property Spiel $spiel
+ * @property Spieler $spieler
+ * @property Verein $verein
+ */
+class SpielScorer extends CActiveRecord
+{
+	/**
+	 * Returns the static model of the specified AR class.
+	 * @param string $className active record class name.
+	 * @return SpielScorer the static model class
+	 */
+	public static function model($className=__CLASS__)
+	{
+		return parent::model($className);
+	}
+
+	/**
+	 * @return string the associated database table name
+	 */
+	public function tableName()
+	{
+		return 'spiel_scorer';
+	}
+
+	/**
+	 * @return array validation rules for model attributes.
+	 */
+	public function rules()
+	{
+		// NOTE: you should only define rules for those attributes that
+		// will receive user inputs.
+		return array(
+			array('spiel_id, verein_id, spielort_flag, spieler_id', 'required'),
+			array('spielort_flag, minute, eigentor_flag, elfmeter_flag', 'numerical', 'integerOnly'=>true),
+			array('spiel_id, verein_id, spieler_id', 'length', 'max'=>10),
+			array('spielstand', 'length', 'max'=>5),
+			// The following rule is used by search().
+			// Please remove those attributes that should not be searched.
+			array('spiel_scorer_id, spiel_id, verein_id, spielort_flag, spieler_id, spielstand, minute, eigentor_flag, elfmeter_flag', 'safe', 'on'=>'search'),
+		);
+	}
+
+	/**
+	 * @return array relational rules.
+	 */
+	public function relations()
+	{
+		// NOTE: you may need to adjust the relation name and the related
+		// class name for the relations automatically generated below.
+		return array(
+			'spiel' => array(self::BELONGS_TO, 'Spiel', 'spiel_id'),
+
+               'spieler' => array(
+                       self::HAS_MANY,
+                       'Spieler',
+                        array(
+                               'spieler_id' => 'spieler_id'
+                       )
+                ),				
+			'verein' => array(self::BELONGS_TO, 'Verein', 'verein_id'),
+		);
+	}
+
+	/**
+	 * @return array customized attribute labels (name=>label)
+	 */
+	public function attributeLabels()
+	{
+		return array(
+			'spiel_scorer_id' => 'Spiel Scorer',
+			'spiel_id' => 'Spiel',
+			'verein_id' => 'Verein',
+			'spielort_flag' => 'Spielort Flag',
+			'spieler_id' => 'Spieler',
+			'spielstand' => 'Spielstand',
+			'minute' => 'Minute',
+			'eigentor_flag' => 'Eigentor Flag',
+			'elfmeter_flag' => 'Elfmeter Flag',
+		);
+	}
+
+	/**
+	 * Retrieves a list of models based on the current search/filter conditions.
+	 * @return CActiveDataProvider the data provider that can return the models based on the search/filter conditions.
+	 */
+	public function search()
+	{
+		// Warning: Please modify the following code to remove attributes that
+		// should not be searched.
+
+		$criteria=new CDbCriteria;
+
+		$criteria->compare('spiel_scorer_id',$this->spiel_scorer_id,true);
+		$criteria->compare('spiel_id',$this->spiel_id,true);
+		$criteria->compare('verein_id',$this->verein_id,true);
+		$criteria->compare('spielort_flag',$this->spielort_flag);
+		$criteria->compare('spieler_id',$this->spieler_id,true);
+		$criteria->compare('spielstand',$this->spielstand,true);
+		$criteria->compare('minute',$this->minute);
+		$criteria->compare('eigentor_flag',$this->eigentor_flag);
+		$criteria->compare('elfmeter_flag',$this->elfmeter_flag);
+
+		return new CActiveDataProvider($this, array(
+			'criteria'=>$criteria,
+		));
+	}
+	
+    /*
+	public function getScorerSpiel($spielId) {
+        $scorer = $this->with(array(
+        	'spieler' => array(
+        		'condition' => 
+        	)
+        'spieler')->findAll(array(
+        $vereine = $this->with(array(
+                'verein2Saison' => array(
+                        'condition' => 'verein2Saison.saison_id = :saisonId',
+                        'params' => array(
+                                ':saisonId' => $saisonId
+                        )
+                )
+        ))->findAll(array('order'=>'vereinsname'));
+        return $vereine;
+        ));
+        
+
+        #        $tipps = Tipp::model()->with(array('spiel' => array(
+		#		'select' => false,
+		#		'joinType' => 'INNER JOIN',
+		#		'condition' => 'spiel.spieltag = :spieltag AND spiel.saison_id = :saisonId AND t.tore_heim IS NOT NULL',
+		#		'params' => array(':spieltag' => $spieltag, ':saisonId' => $saisonId))))->count('user_id = :userId', array(':userId' => $userId));
+        
+        
+        return $scorer;
+    }	*/
+	
+    public function getScorerSpiel($spielId) {
+        $scorer = $this->with('spieler')->findAll(array(
+                'condition' => 'spiel_id = :spielId',
+        		'params' 	=> array('spielId' => $spielId),	
+        		'order'=>'minute, spielstand',
+        		'limit'=> 5,
+        )); 
+        
+        return $scorer;
+    }    
+    
+}

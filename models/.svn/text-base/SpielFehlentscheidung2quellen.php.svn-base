@@ -1,0 +1,121 @@
+<?php
+
+/**
+ * This is the model class for table "spiel_fehlentscheidung2quellen".
+ *
+ * The followings are the available columns in table 'spiel_fehlentscheidung2quellen':
+ * @property string $spiel_fehlentscheidung_id
+ * @property string $quellen_id
+ * @property string $beschreibung
+ * @property string $wertung
+ */
+class SpielFehlentscheidung2quellen extends CActiveRecord
+{
+	/**
+	 * Returns the static model of the specified AR class.
+	 * @param string $className active record class name.
+	 * @return SpielFehlentscheidung2quellen the static model class
+	 */
+	public $quelle;
+	public $quellen_id;
+	
+	public static function model($className=__CLASS__)
+	{
+		return parent::model($className);
+	}
+	
+	public function primaryKey() {
+		return array('spiel_fehlentscheidung_id', 'quellen_id');
+	}
+
+	/**
+	 * @return string the associated database table name
+	 */
+	public function tableName()
+	{
+		return 'spiel_fehlentscheidung2quellen';
+	}
+
+	/**
+	 * @return array validation rules for model attributes.
+	 */
+	public function rules()
+	{
+		// NOTE: you should only define rules for those attributes that
+		// will receive user inputs.
+		return array(
+			array('spiel_fehlentscheidung_id, quellen_id', 'required'),
+			array('spiel_fehlentscheidung_id, quellen_id', 'length', 'max'=>10),
+			array('wertung', 'length', 'max'=>2),
+			array('beschreibung', 'safe'),
+			// The following rule is used by search().
+			// Please remove those attributes that should not be searched.
+			array('spiel_fehlentscheidung_id, quellen_id, beschreibung, wertung', 'safe', 'on'=>'search'),
+		);
+	}
+
+	/**
+	 * @return array relational rules.
+	 */
+	public function relations()
+	{
+		// NOTE: you may need to adjust the relation name and the related
+		// class name for the relations automatically generated below.
+		return array(
+			'quellen' => array(
+				self::HAS_ONE,
+				'Quellen',
+				array('quellen_id' => 'quellen_id'),
+				'joinType' => 'LEFT JOIN'
+			)
+		);
+	}
+
+	/**
+	 * @return array customized attribute labels (name=>label)
+	 */
+	public function attributeLabels()
+	{
+		return array(
+			'spiel_fehlentscheidung_id' => 'Spiel Fehlentscheidung',
+			'quellen_id' => 'Quellen',
+			'beschreibung' => 'Beschreibung',
+			'wertung' => 'Wertung',
+		);
+	}
+
+	/**
+	 * Retrieves a list of models based on the current search/filter conditions.
+	 * @return CActiveDataProvider the data provider that can return the models based on the search/filter conditions.
+	 */
+	public function search()
+	{
+		// Warning: Please modify the following code to remove attributes that
+		// should not be searched.
+
+		$criteria=new CDbCriteria;
+
+		$criteria->compare('spiel_fehlentscheidung_id',$this->spiel_fehlentscheidung_id,true);
+		$criteria->compare('quellen_id',$this->quellen_id,true);
+		$criteria->compare('beschreibung',$this->beschreibung,true);
+		$criteria->compare('wertung',$this->wertung,true);
+
+		return new CActiveDataProvider($this, array(
+			'criteria'=>$criteria,
+		));
+	}
+	
+	public function getQuellenEintragSpiel($quellen_id,$spiel_fehlentscheidung_id) {
+		
+        $quellen = $this->find(array(
+        	'select' => array('t.beschreibung'),
+        	'condition' => 'quellen_id = '.$quellen_id.' AND spiel_fehlentscheidung_id = '.$spiel_fehlentscheidung_id, 
+        	
+        ));
+        if(empty($quellen)) {
+        	$quellen = new SpielFehlentscheidung2quellen();
+        	$quellen->beschreibung = '';
+        }            
+        return $quellen;
+	}
+}

@@ -1,0 +1,254 @@
+<?php
+class PostfachController extends Controller {
+	public $contentNavigation = array(
+		'navigation'=>array(
+			array('label' => 'Posteingang', 'url' => '/postfach/index'),
+			array('label' => 'Postausgang', 'url' => '/postfach/postausgang'),
+			array('label' => 'PN schreiben', 'url' => '/postfach/pn_schreiben'),
+		)
+	);	
+
+	public function filters() {
+		return array(
+			'accessControl', // perform access control for CRUD operations
+		);
+	}
+
+	public function accessRules() {
+		return array(
+			array('allow',  // allow all users to perform 'index' and 'view' actions
+				'actions'=>array('index', 'postausgang', 'pn_schreiben'),
+				'roles'=>array('authentifiziert'),
+			),
+			array('deny',  // deny all users
+				'users'=>array('*'),
+			),
+		);
+	}
+	
+	public function actionIndex() {			
+		$attributes['empfaenger_id'] = Yii::app()->user->getId();		
+		if($pnId = Yii::app()->request->getParam('pn_eingang')) {
+
+			$attributes['pn_id']		 = $pnId;
+			
+			$pn = PnEingang::model()->findByAttributes($attributes);
+
+			$pn->gelesen_flag = 1;
+			$pn->save();
+				
+			$pn->nachricht = Yii::app()->decoda->parse($pn->nachricht);
+				
+			$empfaenger = User::model()->findByPk($pn->empfaenger_id);
+			$absender 	= User::model()->findByPk($pn->absender_id);
+			
+			$verein		= Verein::model()->findByPk($absender->verein_id);
+				
+			$this->breadcrumbs = array(
+				'Posteingang' => array('postfach/'),
+				$pn->titel
+			);
+		
+			$this->render('pnAnsicht', array(
+					'pn' 			=> $pn,
+					'absender' 		=> $absender,
+					'empfaenger' 	=> $empfaenger,
+					'verein'		=> $verein,
+					'formtarget'	=> '/postfach/index')
+			);
+		} else {
+			$arr_pns = array(); 
+			 
+			if(isset($_POST['delete_pn_id'])) {
+				$arr_pns = $_POST['delete_pn_id'];
+				$aktion  = 'doDelete';
+			}
+
+			if(isset($_POST['menu-grid_c0'])) {
+				$arr_pns 	= $_POST['menu-grid_c0'];
+				$akton		= Yii::app()->request->getParam('act');
+			}				
+			
+			foreach($arr_pns as $k => $pn_id) {
+				if($aktion = Yii::app()->request->getParam('act')) {
+					$pn = PnEingang::model()->findByPk($pn_id);
+					
+					if(!empty($pn)) {
+						if($aktion == 'doDelete') {
+							$pn->delete();
+						} elseif($aktion == 'doRead') {
+							$pn->gelesen_flag = 1;
+							$pn->save();
+						} elseif($aktion == 'doUnread') {	
+							$pn->gelesen_flag = 0;
+							$pn->save();
+						}
+					}
+				}
+			}
+			
+			$pn = new PnEingang();
+		
+			$pnDataProvider = new CActiveDataProvider('PnEingang',array(
+				'criteria' => PnEingang::getPNEingangCriteria($attributes['empfaenger_id']),
+				'pagination' => array('pageSize' => 25),
+				'sort' => PnEingang::GetPNSort(),	
+			));			
+
+			$this->render('index',array(
+					'pn' => $pn,
+					'pnData' => $pnDataProvider,
+				)
+			);
+		}
+	}
+	
+	public function actionPostausgang() {
+		$attributes['absender_id'] = Yii::app()->user->getId();
+
+		if($pnId = Yii::app()->request->getParam('pn_ausgang')) {
+			//$pn = new PN;
+			$attributes['pn_id'] = $pnId;
+				
+			$pn = PnAusgang::model()->findByAttributes($attributes);
+			
+			$pn->nachricht = Yii::app()->decoda->parse($pn->nachricht);
+
+			$arr_empfaenger = explode(',',$pn->empfaenger_multi);
+			
+			$empfaenger = User::model()->findAllByPk($arr_empfaenger);
+			
+			$absender 	= User::model()->findByPk($pn->absender_id);
+			
+			$this->breadcrumbs = array(
+				'Posteingang' => array('postfach/'),
+				$pn->titel
+			);
+	
+			$this->render('pnAnsicht', array(
+					'pn' 			=> $pn,
+					'absender' 		=> $absender,
+					'empfaenger' 	=> $empfaenger,
+					'formtarget'	=> '/postfach/postausgang')
+			);
+		} else {
+			
+			$arr_pns = array();
+			
+			if(isset($_POST['delete_pn_id'])) {
+				$arr_pns = $_POST['delete_pn_id'];
+			}
+			if(Yii::app()->request->getParam('act') == 'doDelete' && isset($_POST['menu-grid_c0'])) {
+				$arr_pns = $_POST['menu-grid_c0'];
+			}
+
+			foreach($arr_pns as $k => $pn_id) {
+				PnAusgang::model()->deleteByPk($pn_id);
+			}
+			
+			$pn = new PnAusgang();
+		
+			$pnDataProvider = new CActiveDataProvider('PnAusgang',array(
+				'criteria' => PnAusgang::getPNAusgangCriteria($attributes['absender_id']),
+				'pagination' => array('pageSize' => 25),
+				'sort' => PnAusgang::GetPNSort(),	
+			));			
+
+			$this->render('postausgang',array(
+					'pn' => $pn,
+					'pnData' => $pnDataProvider,
+				)
+			);
+		}
+	}	
+	
+	public function actionPn_schreiben() {
+		$pn 	= new PnEingang;
+		$user 	= array();
+
+		if(isset(Yii::app()->request->isAjaxRequest)) {
+			$q = Yii::app()->request->getQuery('q');
+			User::model()->getUserJSON($q);
+		}
+		
+		if(Yii::app()->request->getQuery('user'))  {
+			$attributes['user_nick'] = Yii::app()->request->getQuery('user');
+				
+			$user = User::model()->findAllByAttributes(
+        		array(),
+        		$condition  = 'user_nick = :user_nick',
+        		$params     = array(
+	               	':user_nick' => $attributes['user_nick'],
+        		)			
+			);
+		}
+
+		
+		if($pnId = Yii::app()->request->getQuery('pn_id'))  {
+			
+			$attributes['empfaenger_id'] = Yii::app()->user->getId();
+			$attributes['pn_id']		 = $pnId;
+			
+			$pn = PnEingang::model()->findByAttributes($attributes);
+			
+			$user = User::model()->findAllByPk($pn->absender_id);
+			if(strpos($pn->titel,'Re: ') === false) {
+				$pn->titel 	= 'Re: '.$pn->titel;
+			} 
+			if($q = Yii::app()->request->getQuery('q')) {
+				$pn->nachricht 	= '[zitat]'.$pn->nachricht.'[/zitat]';
+			} else {
+				$pn->nachricht = '';
+			}
+		}
+
+	    if(isset($_POST['PnEingang'])) {
+			
+	    	$empfaengerIds = explode(',',$_POST['PnEingang']['empfaenger_id']);
+	    	
+	    	$anzahl = 0;
+	    	
+	    	foreach($empfaengerIds as $k => $v) {
+	    		
+	    		// check this out: http://www.yiiframework.com/forum/index.php/topic/10808-saving-model-set/
+	    		
+	    		$pn->setIsNewRecord(true);
+				$pn->setPrimaryKey(NULL);
+	    		
+	    		$pn->empfaenger_id = $v;
+
+	    		$pn->absender_id 	= Yii::app()->user->getId();
+	    		$pn->titel			= $_POST['PnEingang']['titel'];
+	    		$pn->nachricht		= $_POST['PnEingang']['nachricht'];
+	    		$pn->pn_datum		= date('Y-m-d H:i:s');	    		
+	    		
+	    		if($pn->validate()) {
+	    			$anzahl+=1;
+	    			$pn->save();
+	    		}
+	    	}
+	    	
+	    	$PnAusgang = new PnAusgang;
+	    	
+	    	$PnAusgang->absender_id 		= Yii::app()->user->getId();
+	    	$PnAusgang->titel				= $_POST['PnEingang']['titel'];
+	    	$PnAusgang->nachricht			= $_POST['PnEingang']['nachricht'];
+	    	$PnAusgang->pn_datum			= date('Y-m-d H:i:s');
+    	
+	    	$PnAusgang->anzahl_empfaenger 	= $anzahl;
+	    	$PnAusgang->empfaenger_multi 	= $_POST['PnEingang']['empfaenger_id'];
+	    	$PnAusgang->empfaenger_id 		= $empfaengerIds[0];
+	    	
+	    	if($PnAusgang->save()) {
+				Yii::app()->user->setFlash('pnschreiben','Deine Nachricht wurde erfolgreich verschickt.');
+				$this->refresh();	    		
+	    	}	    	
+		}
+
+		$this->render('pnSchreiben', array(
+				'empfaenger' => $user,
+				'pn' => $pn,
+			)
+		);
+	}
+}

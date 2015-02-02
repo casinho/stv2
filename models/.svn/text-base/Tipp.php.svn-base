@@ -1,0 +1,289 @@
+<?php
+
+/**
+ * This is the model class for table "tipp".
+ *
+ * The followings are the available columns in table 'tipp':
+ * @property string $tipp_id
+ * @property string $user_id
+ * @property string $spiel_id
+ * @property integer $tore_heim
+ * @property integer $tore_gast
+ * @property string $saison_id
+ * @property integer $punkte
+ */
+class Tipp extends CActiveRecord
+{
+	
+	/**
+	 * Returns the static model of the specified AR class.
+	 * @param string $className active record class name.
+	 * @return Tipp the static model class
+	 */
+	 
+	public $gesamtpunkte;
+	public $gesamtpunkte_wt;
+	public $tore_heim;
+	public $tore_gast;
+	public $richtige_tipps;
+	public $richtige_tipps_wt;
+	public $punkte_wt;
+	public $tipps_aktualisiert_flag;
+	
+	
+	public static function model($className=__CLASS__)
+	{
+		return parent::model($className);
+	}
+
+	/**
+	 * @return string the associated database table name
+	 */
+	public function tableName()
+	{
+		return 'tipp';
+	}
+
+	/**
+	 * @return array validation rules for model attributes.
+	 */
+	public function rules()
+	{
+		// NOTE: you should only define rules for those attributes that
+		// will receive user inputs.
+		return array(
+			array('user_id, spiel_id, saison_id', 'required'),
+			array('tore_heim, tore_gast, punkte', 'numerical', 'integerOnly'=>true),
+			array('user_id, spiel_id, saison_id', 'length', 'max'=>10),
+			// The following rule is used by search().
+			// Please remove those attributes that should not be searched.
+			array('tipp_id, user_id, spiel_id, tore_heim, tore_gast, saison_id, punkte', 'safe', 'on'=>'search'),
+		);
+	}
+
+	/**
+	 * @return array relational rules.
+	 */
+	public function relations()
+	{
+		// NOTE: you may need to adjust the relation name and the related
+		// class name for the relations automatically generated below.
+		return array(
+			'saison' => array(
+				self::BELONGS_TO,
+				'Saison',
+				'saison_id'
+			),
+			'spiel' => array(
+				self::BELONGS_TO,
+				'Spiel',
+				'spiel_id',
+				'joinType' => 'INNER JOIN'
+			),
+			'user' => array(
+				self::BELONGS_TO,
+				'User',
+				'user_id',
+				'joinType' => 'INNER JOIN'
+			),
+			'tipp_gesamt' => array(
+				self::HAS_MANY,
+				'TippGesamt',
+				array('user_id' => 'user_id'),
+				'joinType' => 'INNER JOIN',
+				'together' => true
+			)
+		);
+	}
+
+	/**
+	 * @return array customized attribute labels (name=>label)
+	 */
+	public function attributeLabels()
+	{
+		return array(
+			'tipp_id' => 'Tipp',
+			'user_id' => 'User',
+			'spiel_id' => 'Spiel',
+			'tore_heim' => 'Tore Heim',
+			'tore_gast' => 'Tore Gast',
+			'saison_id' => 'Saison',
+			'punkte' => 'Punkte',
+		);
+	}
+
+	/**
+	 * Retrieves a list of models based on the current search/filter conditions.
+	 * @return CActiveDataProvider the data provider that can return the models based on the search/filter conditions.
+	 */
+	public function search()
+	{
+		// Warning: Please modify the following code to remove attributes that
+		// should not be searched.
+
+		$criteria=new CDbCriteria;
+
+		$criteria->compare('tipp_id',$this->tipp_id,true);
+		$criteria->compare('user_id',$this->user_id,true);
+		$criteria->compare('spiel_id',$this->spiel_id,true);
+		$criteria->compare('tore_heim',$this->tore_heim);
+		$criteria->compare('tore_gast',$this->tore_gast);
+		$criteria->compare('saison_id',$this->saison_id,true);
+		$criteria->compare('punkte',$this->punkte);
+
+		return new CActiveDataProvider($this, array(
+			'criteria'=>$criteria,
+		));
+	}
+	
+	
+	public static function getRanglisteCriteria($saisonId,$nummerGewaehlterSpieltag,$nummerAktuellerSpieltag) {
+		$criteria = new CDbCriteria;
+	 	$criteria->with = array('user', 'spiel', 'tipp_gesamt');
+	 	$criteria->select = array('spiel.*', 'user.*', 'tipp_gesamt.punkte AS gesamtpunkte', 'tipp_gesamt.punkte_wt AS gesamtpunkte_wt', 'SUM(t.punkte) AS punkte', 'SUM(t.punkte_wt) AS punkte_wt', 'SUM(IF(t.punkte = 4,1,0)) AS richtige_tipps', 'SUM(IF(t.punkte_wt = 4,1,0)) AS richtige_tipps_wt');
+	 	$criteria->condition = 'spiel.saison_id = :saison_id AND spieltag = :spieltag AND tipp_gesamt.saison_id = :saison_id';
+	 	$criteria->params = array(
+			':saison_id' => $saisonId,
+			':spieltag' => $nummerGewaehlterSpieltag
+		);
+		$criteria->group = 'user.user_id';
+		return $criteria;
+	}
+	
+	public static function getGesamtranglisteCriteria($saisonId,$nummerGewaehlterSpieltag,$nummerAktuellerSpieltag) {
+		$criteria = new CDbCriteria;
+	 	$criteria->with = array('user', 'spiel', 'tipp_gesamt');
+	 	$criteria->select = array('spiel.*', 'user.*', 'tipp_gesamt.punkte AS punkte', 'tipp_gesamt.punkte_wt AS punkte_wt', 'SUM(IF(t.punkte = 4,1,0)) AS richtige_tipps', 'SUM(IF(t.punkte_wt = 4,1,0)) AS richtige_tipps_wt');
+	 	$criteria->condition = 'spiel.saison_id = :saison_id AND tipp_gesamt.saison_id = :saison_id';
+	 	$criteria->params = array(
+			':saison_id' => $saisonId,
+		);
+		$criteria->group = 'user.user_id';
+		return $criteria;
+	}
+	
+	
+	
+
+    
+    public static function getRanglisteSort() {
+		$sort = new CSort;
+		$sort->defaultOrder = 'punkte DESC, gesamtpunkte DESC';
+		$sort->attributes = array(
+			'rang' => array(
+				'asc'=>'verein.vereinsname',
+				'desc'=>'verein.vereinsname DESC',
+			),
+			'punkte' => array(
+				'asc'=>'punkte, gesamtpunkte',
+				'desc'=>'punkte DESC, gesamtpunkte DESC',
+			),
+			'gesamtpunkte' => array(
+				'asc'=>'gesamtpunkte',
+				'desc'=>'gesamtpunkte DESC',
+			),
+			'richtige_tipps' => array(
+				'asc'=>'richtige_tipps',
+				'desc'=>'richtige_tipps DESC',
+			),
+			'punkte_wt' => array(
+				'asc'=>'punkte_wt, gesamtpunkte_wt',
+				'desc'=>'punkte_wt DESC, gesamtpunkte_wt DESC',
+			),
+			'gesamtpunkte_wt' => array(
+				'asc'=>'gesamtpunkte_wt',
+				'desc'=>'gesamtpunkte_wt DESC',
+			),
+			'richtige_tipps_wt' => array(
+				'asc'=>'richtige_tipps_wt',
+				'desc'=>'richtige_tipps_wt DESC',
+			),
+			'user_nick' => array(
+				'asc'=>'user_nick',
+				'desc'=>'user_nick DESC',
+			)
+		);
+		
+		return $sort;
+	}
+	
+	public static function getGesamtranglisteSort() {
+		$sort = new CSort;
+		$sort->defaultOrder = 'punkte DESC';
+		$sort->attributes = array(
+			'rang' => array(
+				'asc'=>'verein.vereinsname',
+				'desc'=>'verein.vereinsname DESC',
+			),
+			'punkte' => array(
+				'asc'=>'punkte',
+				'desc'=>'punkte DESC',
+			),
+			'richtige_tipps' => array(
+				'asc'=>'richtige_tipps',
+				'desc'=>'richtige_tipps DESC',
+			),
+			'punkte_wt' => array(
+				'asc'=>'punkte_wt',
+				'desc'=>'punkte_wt DESC',
+			),
+			'richtige_tipps_wt' => array(
+				'asc'=>'richtige_tipps_wt',
+				'desc'=>'richtige_tipps_wt DESC',
+			),
+			'user_nick' => array(
+				'asc'=>'user_nick',
+				'desc'=>'user_nick DESC',
+			)
+		);
+		
+		return $sort;
+	}
+	
+	public static function getTipps($spiel_id = 0, $user_id = 0) {
+        if($user_id == 0) {
+        	$user_id = Yii::app()->user->getId();
+        }
+        $tipps = Tipp::model()->find(array(
+                'select' => array(
+                        'tore_heim',
+                        'tipp_id',
+						'tore_gast',
+						'spiel_id',
+						'punkte_wt',
+                        'punkte'),
+                'condition' => 'spiel_id = '.$spiel_id.' AND user_id = '.$user_id
+        ));
+        return $tipps;
+    }
+    
+    public function getUserTippPunkteGesamtSaison($saison_id) {
+        $user = $this->findAll(array(
+                'select' => array(
+                        'user_id,SUM(punkte) AS gesamtpunkte,SUM(punkte_wt) AS gesamtpunkte_wt'),
+                'condition' => 'saison_id = '.$saison_id,
+                'group' => 'user_id'
+        ));
+        return $user;
+    }
+    
+    public static function getAlleTippsNachSpiel($spiel_id = 0) {
+        $tipps = Tipp::model()->findAll(array(
+                'condition' => 'spiel_id = '.$spiel_id
+        ));
+        return $tipps;
+    }
+    
+    public static function countTipps($spieltag, $saisonId, $userId = 0) {
+        if($userId == 0) {
+        	$userId = Yii::app()->user->getId();
+        }
+        $tipps = Tipp::model()->with(array('spiel' => array(
+				'select' => false,
+				'joinType' => 'INNER JOIN',
+				'condition' => 'spiel.spieltag = :spieltag AND spiel.saison_id = :saisonId AND t.tore_heim IS NOT NULL',
+				'params' => array(':spieltag' => $spieltag, ':saisonId' => $saisonId))))->count('user_id = :userId', array(':userId' => $userId));
+        return $tipps;
+    }
+
+}

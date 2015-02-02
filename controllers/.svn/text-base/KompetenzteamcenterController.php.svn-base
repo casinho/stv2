@@ -1,0 +1,303 @@
+<?php
+class KompetenzteamcenterController extends Controller {
+    public function filters() {
+		return array(
+			'accessControl', // perform access control for CRUD operations
+		);
+	}
+
+	public function accessRules() {
+		return array(
+			array('allow',  // allow all users to perform 'index' and 'view' actions
+				'actions'=>array('index', 'detail', 'editQuelle','editStrittigeEntscheidung', 'votingStrittigeEntscheidung', 'deleteStrittigeEntscheidung'),
+				'roles'=>array('kt-mitglied', 'kt-admin', 'admin'),
+			),
+			array('deny',  // deny all users
+				'users'=>array('*'),
+			),
+		);
+	}
+	
+	public function actionIndex() {
+        $saisonId 							= Saison::model()->getAktuelleSaisonId(Yii::app()->params['wettbewerbId']);
+		$spieltagsAnzeige 					= WTFunctions::getDatenFuerSpieltagsAnzeigeBySaisonId($saisonId);
+		$spieltagsAnzeige['gesamtAnzeige'] 	= true;
+        $anzeigeSpiele             			= Spiel::model()->getSpieleBySaisonAndSpieltag($saisonId, $spieltagsAnzeige['gewaehlterSpieltag']);
+        
+		$viewparams = array(
+    		'saisonId' 			=> $saisonId,
+    		'spieltagsAnzeige' 	=> $spieltagsAnzeige,
+			'anzeigeSpiele'		=> $anzeigeSpiele,
+        );
+		$this->breadcrumbs = array('Kompetenzteamcenter' => array('kompetenzteamcenter/index'),'Spieltagsübersicht');
+		$this->render('index',$viewparams);
+    }
+
+    public function actionDetail() {
+        $saisonId 							= Saison::model()->getAktuelleSaisonId(Yii::app()->params['wettbewerbId']);
+		$spieltagsAnzeige 					= WTFunctions::getDatenFuerSpieltagsAnzeigeBySaisonId($saisonId);
+		$spieltagsAnzeige['gesamtAnzeige'] 	= true;
+        $spielDetail						= Spiel::model()->getSpielDaten(Yii::app()->request->getParam('spiel_id'));
+		$strittigeSzenen 					= SpielFehlentscheidung::model()->getStrittigeSzenenByBegegnung(Yii::app()->request->getParam('spiel_id'));
+		$letztesSpielZeit					= Spiel::model()->getTagAuswertungSpieltag(Yii::app()->request->getParam('spieltag'));
+
+		if(!empty($letztesSpielZeit)) {
+			$now = date('Y-m-d H:i:s');
+			if($letztesSpielZeit['tag_auswertung'] < $now) {
+				$aenderungenErlaubt 	= 0;
+			}else {
+				$aenderungenErlaubt 	= 1;
+			}
+		}
+
+		//Test-Flag
+		//$aenderungenErlaubt = 1;
+			
+		$viewparams = array(
+    		'saisonId' 				=> $saisonId,
+    		'spieltagsAnzeige' 		=> $spieltagsAnzeige,
+			'spielDetail'			=> $spielDetail,
+			'strittigeSzenen'		=> $strittigeSzenen,
+			'aenderungenErlaubt'	=> $aenderungenErlaubt,
+			'endeAbgabeAenderungen' => $letztesSpielZeit['tag_auswertung']
+        );
+		$this->breadcrumbs = array('Kompetenzteamcenter' => array('kompetenzteamcenter/index'),'Begegnungsansicht');
+		$this->render('detail',$viewparams);
+    } 
+
+	public function actionEditQuelle() {
+				
+		$quellen_id 				= Yii::app()->request->getParam('quellen_id');
+        $spieltag					= Yii::app()->request->getParam('spieltag');
+		$spiel_id					= Yii::app()->request->getParam('spiel_id');
+		$spiel_fehlentscheidung_id 	= Yii::app()->request->getParam('spiel_fehlentscheidung_id');
+		
+		if(isset($_POST['SpielFehlentscheidung2quellen'])) {
+			$qryItem								= SpielFehlentscheidung2quellen::model()->findByAttributes(array('spiel_fehlentscheidung_id' => $spiel_fehlentscheidung_id, 'quellen_id' => $quellen_id));
+			if(empty($qryItem)) {
+				$qryItem							= new SpielFehlentscheidung2quellen();
+				$qryItem->spiel_fehlentscheidung_id = $spiel_fehlentscheidung_id;
+				$qryItem->quellen_id 				= $quellen_id;
+			}
+			$qryItem->attributes	= $_POST['SpielFehlentscheidung2quellen'];
+	
+			if($qryItem->validate()) {
+				if($qryItem->save()) {
+					Yii::app()->user->setFlash('zitat_gespeichert','Das Zitat wurde erfolgreich gespeichert.');
+				} else {
+					Yii::app()->user->setFlash('zitat_nicht_gespeichert','Das Zitat konnte nicht gespeichert werden.');
+				}
+			}
+		}
+		
+		$spielDetail 				= Spiel::model()->getSpielDaten($spiel_id);
+		$quellenEintrag 			= SpielFehlentscheidung2quellen::model()->getQuellenEintragSpiel($quellen_id, $spiel_fehlentscheidung_id);
+		$quelle						= Quellen::model()->findByPk($quellen_id);
+
+		$viewparams = array(
+			'spielDetail'				=> $spielDetail,
+			'quellen_id'				=> $quellen_id,
+			'spiel_fehlentscheidung_id' => $spiel_fehlentscheidung_id,
+			'quellenEintrag'			=> $quellenEintrag,
+			'quelle'					=> $quelle->quelle
+        );
+		$this->breadcrumbs = array('Kompetenzteamcenter' => array('kompetenzteamcenter/index'),'Spieltagsübersicht' => array('kompetenzteamcenter/detail/?spieltag='.$spieltag.'&spiel_id='.$spiel_id.''), 'Quellenzitat hinzufügen/bearbeiten');
+		$this->render('editQuelle',$viewparams);
+    }
+    
+	public function actionVotingStrittigeEntscheidung() {
+				
+        $spieltag					= Yii::app()->request->getParam('spieltag');
+		$spiel_id					= Yii::app()->request->getParam('spiel_id');
+		$spiel_fehlentscheidung_id 	= Yii::app()->request->getParam('spiel_fehlentscheidung_id');
+
+		if(isset($_POST['Kt2voting'])) {
+
+			if($_POST['Kt2voting']['option_id'] != 'empty') {
+				$qryItem								= Kt2voting::model()->findByAttributes(array('spiel_fehlentscheidung_id' => $spiel_fehlentscheidung_id, 'spiel_id' => $spiel_id, 'user_id' => Yii::app()->user->id, 'spieltag' => $spieltag));
+
+				if(empty($qryItem)) {
+					$qryItem							= new Kt2voting();
+					$qryItem->spiel_fehlentscheidung_id = $spiel_fehlentscheidung_id;
+					$qryItem->spiel_id 					= $spiel_id;
+					$qryItem->user_id 					= Yii::app()->user->id;
+					$qryItem->spieltag					= $spieltag;
+					$qryItem->datum_erstellt			= date('Y-m-d H:i:s');
+				}
+				$qryItem->attributes					= $_POST['Kt2voting'];
+				$qryItem->datum_bearbeitet				= date('Y-m-d H:i:s');
+				
+				if($qryItem->validate()) {
+					if($qryItem->save()) {
+						Yii::app()->user->setFlash('bewertung_gespeichert','Deine Bewertung wurde erfolgreich gespeichert.');
+					} else {
+						Yii::app()->user->setFlash('bewertung_nicht_gespeichert','Deine Bewertung konnte nicht gespeichert werden.');
+					}
+				}
+			}else {
+				Yii::app()->user->setFlash('bewertung_nicht_gespeichert','Deine Bewertung konnte nicht gespeichert werden.');
+			}
+		}
+		
+		$spielDetail 				= Spiel::model()->getSpielDaten($spiel_id);
+		
+		$strittigeSzene				= SpielFehlentscheidung::model()->findByPk($spiel_fehlentscheidung_id);
+		if(!empty($strittigeSzene['thema_id'])) {
+			$strittigeSzene['thema']= ForumThema::model(NULL,23)->getThemaTitel($strittigeSzene['thema_id']);
+		}
+		
+		$attributes['spiel_id']						= $spiel_id;
+		$attributes['spiel_fehlentscheidung_id'] 	= $spiel_fehlentscheidung_id;
+		$attributes['user_id']						= Yii::app()->user->id;
+		
+		$strittigeSzeneUser 		= Kt2voting::model()->findByAttributes($attributes);
+		if(empty($strittigeSzeneUser)) {
+			$strittigeSzeneUser 	= new Kt2voting();
+		}
+		
+		
+		$viewparams = array(
+			'spielDetail'				=> $spielDetail,
+			'spiel_fehlentscheidung_id' => $spiel_fehlentscheidung_id,
+			'strittigeSzene'			=> $strittigeSzene,
+			'strittigeSzeneUser'		=> $strittigeSzeneUser
+        );
+		$this->breadcrumbs = array('Kompetenzteamcenter' => array('kompetenzteamcenter/index'),'Spieltagsübersicht' => array('kompetenzteamcenter/detail/?spieltag='.$spieltag.'&spiel_id='.$spiel_id.''), 'Strittige Entscheidung bewerten/abstimmen');
+		$this->render('votingStrittigeEntscheidung',$viewparams);
+    }
+    
+	public function actionEditStrittigeEntscheidung() {
+				
+        $spieltag					= Yii::app()->request->getParam('spieltag');
+		$spiel_id					= Yii::app()->request->getParam('spiel_id');
+		$thema_id 					= Yii::app()->request->getParam('thema_id');	
+
+		if(isset($_POST['SpielFehlentscheidung'])) {
+			$qryItem				= SpielFehlentscheidung::model()->findByAttributes(array('thema_id' => $thema_id));
+			if(empty($qryItem)) {
+				$qryItem				= new SpielFehlentscheidung();
+				$qryItem->thema_id 		= $thema_id;
+				$qryItem->spiel_id 		= $spiel_id;
+			}
+			$qryItem->attributes		= $_POST['SpielFehlentscheidung'];
+
+			$qryItem2				= ForumThema::model(NULL,23)->findByAttributes(array('thema_id' => $thema_id));
+			$qryItem2->voting_flag	= 1;
+			if($qryItem2->validate()) {
+				$qryItem2->save();
+			}
+			
+			if($qryItem->validate()) {
+				if($qryItem->save()) {
+					Yii::app()->user->setFlash('gespeichert','Die Fehlentscheidung wurde erfolgreich angelegt.');
+				} else {
+					Yii::app()->user->setFlash('nicht_gespeichert','Fehler: Die Fehlentscheidung konnte nicht gespeichert werden.');
+				}
+			}else {
+				Yii::app()->user->setFlash('nicht_gespeichert','Fehler: Die Fehlentscheidung konnte nicht gespeichert werden.');
+			}
+		}
+		
+		if(!empty($thema_id)) {
+			$attributes['thema_id']		= $thema_id;
+			$strittigeSzene['titel']	= ForumThema::model(NULL,23)->findByAttributes($attributes);
+		
+			$attributes_user['user_id']	= $strittigeSzene['titel']['user_id'];
+			$strittigeSzene['user']		= User::model()->findByAttributes($attributes_user);
+		}
+		
+		$attributes_thema['thema_id']	= $thema_id;
+		$strittigeSzene['szene']		= SpielFehlentscheidung::model()->findByAttributes($attributes_thema);
+		
+		if(empty($strittigeSzene['szene'])) {
+			$strittigeSzene['szene'] 	= new SpielFehlentscheidung();	
+		}
+			
+		$spielDetail 					= Spiel::model()->getSpielDaten($spiel_id);
+		$strittigeSzene['kategorien']	= FehlentscheidungKategorie::model()->findAll();
+		
+		foreach($strittigeSzene['kategorien'] as $key => $kat) {
+			$kategorie[$kat['kategorie_id']] = $kat['kategorie'];
+		}
+		
+
+		
+
+		
+		$viewparams = array(
+			'spielDetail'			=> $spielDetail,
+			'thema_id'				=> $thema_id,
+			'strittigeSzene'		=> $strittigeSzene,
+			'kategorien'			=> $kategorie
+
+        );
+		$this->breadcrumbs = array('Kompetenzteamcenter' => array('kompetenzteamcenter/index'),'Spieltagsübersicht' => array('kompetenzteamcenter/detail/?spieltag='.$spieltag.'&spiel_id='.$spiel_id.''), 'Strittige Entscheidung erstellen/bearbeiten');
+		$this->render('editStrittigeEntscheidung',$viewparams);
+    }
+    
+	public function actionDeleteStrittigeEntscheidung() {
+				
+        $spieltag					= Yii::app()->request->getParam('spieltag');
+		$spiel_id					= Yii::app()->request->getParam('spiel_id');
+		$spiel_fehlentscheidung_id 	= Yii::app()->request->getParam('spiel_fehlentscheidung_id');
+		$thema_id					= Yii::app()->request->getParam('thema_id');
+		
+		if(!empty($_POST)) {
+			$attributes['spiel_fehlentscheidung_id'] = $spiel_fehlentscheidung_id;
+			
+			$qryItem1 = SpielFehlentscheidung2quellen::model()->findByAttributes($attributes);
+			$qryItem2 = Kt2voting::model()->findByAttributes($attributes);
+			$qryItem3 = SpielFehlentscheidung::model()->findByAttributes($attributes);
+			$qryItem4 = ForumThema::model(NULL,23)->findByAttributes(array('thema_id' => $thema_id));
+			
+			if(!empty($qryItem1)) {
+				$qryItem1->delete();	
+			}
+			if(!empty($qryItem2)) {
+				$qryItem2->delete();
+			}
+			if(!empty($qryItem3)) {
+				$qryItem3->delete();
+			}
+			if(!empty($qryItem4)) {
+				$qryItem4->voting_flag = 2;
+				$qryItem4->save();
+			}
+			
+			Yii::app()->user->setFlash('geloescht','Die Fehlentscheidung wurde erfolgreich geloescht.');
+			$url = Yii::app()->createUrl('kompetenzteamcenter/detail/?spieltag='.$spieltag.'&spiel_id='.$spiel_id.'');
+			$this->redirect($url);
+		}else {
+		
+			if(!empty($thema_id)) {
+				$attributes['thema_id']		= $thema_id;
+				$strittigeSzene['titel']	= ForumThema::model(NULL,23)->findByAttributes($attributes);
+			
+				$attributes_user['user_id']	= $strittigeSzene['titel']['user_id'];
+				$strittigeSzene['user']		= User::model()->findByAttributes($attributes_user);
+			}
+			
+			$attributes_thema['thema_id']	= $thema_id;
+			$strittigeSzene['szene']		= SpielFehlentscheidung::model()->findByAttributes($attributes_thema);
+			
+			if(empty($strittigeSzene['szene'])) {
+				$strittigeSzene['szene'] 	= new SpielFehlentscheidung();	
+			}
+				
+			$spielDetail 					= Spiel::model()->getSpielDaten($spiel_id);
+			$strittigeSzene['kategorien']	= FehlentscheidungKategorie::model()->findAll();
+			
+			foreach($strittigeSzene['kategorien'] as $key => $kat) {
+				$kategorie[$kat['kategorie_id']] = $kat['kategorie'];
+			}
+			
+			$viewparams = array(
+				'spielDetail'				=> $spielDetail,
+				'spiel_fehlentscheidung_id' => $spiel_fehlentscheidung_id,
+				'strittigeSzene'			=> $strittigeSzene
+	        );
+			$this->breadcrumbs = array('Kompetenzteamcenter' => array('kompetenzteamcenter/index'),'Spieltagsübersicht' => array('kompetenzteamcenter/detail/?spieltag='.$spieltag.'&spiel_id='.$spiel_id.''), 'Strittige Entscheidung löschen');
+			$this->render('deleteStrittigeEntscheidung',$viewparams);
+		}
+    }
+}

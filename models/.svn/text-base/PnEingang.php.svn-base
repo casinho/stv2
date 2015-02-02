@@ -1,0 +1,205 @@
+<?php
+
+/**
+ * This is the model class for table "pn_eingang".
+ *
+ * The followings are the available columns in table 'pn_eingang':
+ * @property string $pn_id
+ * @property string $titel
+ * @property string $nachricht
+ * @property string $pn_datum
+ * @property integer $gelesen_flag
+ * @property integer $alarm_flag
+ * @property integer $beantwortet_flag
+ * @property string $empfaenger_id
+ * @property string $absender_id
+ */
+class PnEingang extends CActiveRecord
+{
+	public $datum;
+	
+	
+	/**
+	 * Returns the static model of the specified AR class.
+	 * @param string $className active record class name.
+	 * @return PnEingang the static model class
+	 */
+	public static function model($className=__CLASS__)
+	{
+		return parent::model($className);
+	}
+
+	/**
+	 * @return string the associated database table name
+	 */
+	public function tableName()
+	{
+		return 'pn_eingang';
+	}
+
+	/**
+	 * @return array validation rules for model attributes.
+	 */
+	public function rules()
+	{
+		// NOTE: you should only define rules for those attributes that
+		// will receive user inputs.
+		return array(
+			array('empfaenger_id, absender_id, nachricht', 'required'),
+			array('gelesen_flag, alarm_flag, beantwortet_flag', 'numerical', 'integerOnly'=>true),
+			array('titel', 'length', 'max'=>255),
+			array('empfaenger_id, absender_id', 'length', 'max'=>10),
+			array('nachricht, pn_datum', 'safe'),
+			// The following rule is used by search().
+			// Please remove those attributes that should not be searched.
+			array('pn_id, titel, nachricht, pn_datum, gelesen_flag, alarm_flag, beantwortet_flag, empfaenger_id, absender_id', 'safe', 'on'=>'search'),
+		);
+	}
+
+	/**
+	 * @return array relational rules.
+	 */
+	public function relations()
+	{
+		// NOTE: you may need to adjust the relation name and the related
+		// class name for the relations automatically generated below.
+		return array(
+			'empfaenger' => array(
+				self::HAS_ONE,	'User', array('empfaenger_id' => 'user_id'), 'joinType' => 'LEFT JOIN'
+			),
+			
+			'absender' => array(
+				self::HAS_ONE,	'User', array('user_id' => 'absender_id'), 'joinType' => 'LEFT JOIN'
+			),
+		);
+	}
+
+	/**
+	 * @return array customized attribute labels (name=>label)
+	 */
+	public function attributeLabels()
+	{
+		return array(
+			'pn_id' => 'Pn',
+			'titel' => 'Titel',
+			'nachricht' => 'Nachricht',
+			'pn_datum' => 'Pn Datum',
+			'gelesen_flag' => 'Gelesen Flag',
+			'alarm_flag' => 'Alarm Flag',
+			'beantwortet_flag' => 'Beantwortet Flag',
+			'empfaenger_id' => 'Empfaenger',
+			'absender_id' => 'Absender',
+		);
+	}
+
+	/**
+	 * Retrieves a list of models based on the current search/filter conditions.
+	 * @return CActiveDataProvider the data provider that can return the models based on the search/filter conditions.
+	 */
+	public function search()
+	{
+		// Warning: Please modify the following code to remove attributes that
+		// should not be searched.
+
+		$criteria=new CDbCriteria;
+
+		$criteria->compare('pn_id',$this->pn_id,true);
+		
+		$criteria->compare('titel',$this->titel,true);
+		$criteria->compare('nachricht',$this->nachricht,true);
+		$criteria->compare('pn_datum',$this->pn_datum,true);
+		//$criteria->compare('gelesen_flag',$this->gelesen_flag);
+		//$criteria->compare('alarm_flag',$this->alarm_flag);
+		//$criteria->compare('beantwortet_flag',$this->beantwortet_flag);
+		//$criteria->compare('empfaenger_id',$this->empfaenger_id,true);
+		//$criteria->compare('absender_id',$this->absender_id,true);
+		//$criteria->compare('absender',$this->absender,true);
+
+		return new CActiveDataProvider($this, array(
+			'criteria'=>$criteria,
+ 			'pagination' => array( 'pageSize' => 10, ),		
+		));
+	}
+	
+    public static function getPNEingangCriteria($empfaenger_id) {
+		$criteria = new CDbCriteria;
+	 	$criteria->with 		= array('absender');
+	 	$criteria->select 		= array('pn_id', 'pn_datum', 'titel', 'gelesen_flag', 'beantwortet_flag', 'absender.*');
+ 		$criteria->condition 	= 'empfaenger_id = :empfaenger_id';
+	 	$criteria->params 		= array(':empfaenger_id' => $empfaenger_id,);
+
+		return $criteria;
+	}	
+	
+	public static function getPNSort() {
+		$sort = new CSort;
+		$sort->defaultOrder = 'pn_datum DESC';
+		$sort->attributes = array(
+			'datum' => array(
+				'desc'=>'pn_datum DESC',
+				'asc'=>'pn_datum',		
+			),
+			'absender' => array(
+				'asc'=>'absender.user_nick',
+				'desc'=>'absender.user_nick DESC',
+			),
+			'titel' => array(
+				'asc'=>'titel',
+				'desc'=>'titel DESC',
+			),
+		);
+		
+		return $sort;
+	}	
+
+    public function getPNLink() {
+		return CHtml::normalizeUrl(array('postfach/index', 'pn_eingang' => $this->pn_id));
+	}	
+	
+    public function getUserLink() {
+		return CHtml::normalizeUrl(array('profil/index', 'user' => $this->absender->user_nick));
+	}
+	
+	public function getPNStatusByUserId($userId) {
+	    $n = $this->count('empfaenger_id = :userId AND gelesen_flag = 0', array(':userId' => $userId));
+	    return ($n > 0) ? true : false;
+	}
+	
+	protected function afterSave() {
+		parent::afterSave();
+		if($this->isNewRecord) {
+			$this->checkEMailInfo();
+			$this->isNewRecord = false;
+		}
+	}	
+	
+	
+	private function checkEmailInfo() {
+		
+		$attributes['user_id'] 				= $this->empfaenger_id;
+		$attributes['pn_erinnerung_flag'] 	= 1;
+		
+		$user = User::model()->findByAttributes($attributes);
+		
+		unset($attributes);
+		$attributes['user_id'] 				= $this->absender_id;
+		$absender = User::model()->findByAttributes($attributes);
+		
+		
+		if(!empty($user)) {
+			$message = new YiiMailMessage('Wahretabelle.de: neue Nachricht von '.$absender->user_nick); 
+			$message->view = 'privateNachricht'; 
+			$message->setBody(array(
+						'absender'	=> $absender,
+						'userModel' => $user,
+						'pnId'		=> $this->getPrimaryKey(),
+					), 'text/html'); 
+			$message->addTo($user->user_mail);
+			$message->from = Yii::app()->params['systemMail']; 
+			Yii::app()->mail->send($message);
+		}
+		return true;
+		
+	}
+	
+}

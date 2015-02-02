@@ -1,0 +1,20 @@
+<?php
+class WTWebUser extends CWebUser {
+	public $loginUrl = array('profil/login');
+	private $_model;
+	
+	protected function loadUser($id=null) {
+		if($this->_model === null) {
+			if($id !== null) {
+				$this->_model = User::model()->findByPk($id);
+			}
+		}
+		return $this->_model;
+	}
+	
+	public function isChef() {
+		$user = $this->loadUser(Yii::app()->user->id);
+ 		return (intval($user->chef_flag) == 1) ? true : false;
+ 	}
+}
+?>

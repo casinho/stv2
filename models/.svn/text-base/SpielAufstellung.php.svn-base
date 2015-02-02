@@ -1,0 +1,150 @@
+<?php
+
+/**
+ * This is the model class for table "spiel_aufstellung".
+ *
+ * The followings are the available columns in table 'spiel_aufstellung':
+ * @property string $spiel_aufstellung_id
+ * @property string $spiel_id
+ * @property string $verein_id
+ * @property integer $spielort_flag
+ * @property string $spieler_id
+ * @property integer $minute_einwechslung
+ * @property integer $minute_auswechslung
+ * @property string $durchschnittsnote
+ * @property integer $anzahl_benotungen
+ *
+ * The followings are the available model relations:
+ * @property Spiel $spiel
+ * @property Spieler $spieler
+ * @property Verein $verein
+ */
+class SpielAufstellung extends CActiveRecord
+{
+	/**
+	 * Returns the static model of the specified AR class.
+	 * @param string $className active record class name.
+	 * @return SpielAufstellung the static model class
+	 */
+	public static function model($className=__CLASS__)
+	{
+		return parent::model($className);
+	}
+
+	/**
+	 * @return string the associated database table name
+	 */
+	public function tableName()
+	{
+		return 'spiel_aufstellung';
+	}
+
+	/**
+	 * @return array validation rules for model attributes.
+	 */
+	public function rules()
+	{
+		// NOTE: you should only define rules for those attributes that
+		// will receive user inputs.
+		return array(
+			array('spiel_id, verein_id, spielort_flag, spieler_id, minute_einwechslung, minute_auswechslung', 'required'),
+			array('spielort_flag, minute_einwechslung, minute_auswechslung, anzahl_benotungen', 'numerical', 'integerOnly'=>true),
+			array('spiel_id, verein_id, spieler_id', 'length', 'max'=>10),
+			array('durchschnittsnote', 'length', 'max'=>2),
+			// The following rule is used by search().
+			// Please remove those attributes that should not be searched.
+			array('spiel_aufstellung_id, spiel_id, verein_id, spielort_flag, spieler_id, minute_einwechslung, minute_auswechslung, durchschnittsnote, anzahl_benotungen', 'safe', 'on'=>'search'),
+		);
+	}
+
+	/**
+	 * @return array relational rules.
+	 */
+	public function relations()
+	{
+		// NOTE: you may need to adjust the relation name and the related
+		// class name for the relations automatically generated below.
+		return array(
+			'spiel' => array(self::BELONGS_TO, 'Spiel', 'spiel_id'),
+               'spieler' => array(
+                       self::HAS_MANY,
+                       'Spieler',
+                        array(
+                               'spieler_id' => 'spieler_id'
+                       )
+                ),
+			'verein' => array(self::BELONGS_TO, 'Verein', 'verein_id'),
+		);
+	}
+
+	/**
+	 * @return array customized attribute labels (name=>label)
+	 */
+	public function attributeLabels()
+	{
+		return array(
+			'spiel_aufstellung_id' => 'Spiel Aufstellung',
+			'spiel_id' => 'Spiel',
+			'verein_id' => 'Verein',
+			'spielort_flag' => 'Spielort Flag',
+			'spieler_id' => 'Spieler',
+			'minute_einwechslung' => 'Minute Einwechslung',
+			'minute_auswechslung' => 'Minute Auswechslung',
+			'durchschnittsnote' => 'Durchschnittsnote',
+			'anzahl_benotungen' => 'Anzahl Benotungen',
+		);
+	}
+
+	/**
+	 * Retrieves a list of models based on the current search/filter conditions.
+	 * @return CActiveDataProvider the data provider that can return the models based on the search/filter conditions.
+	 */
+	public function search()
+	{
+		// Warning: Please modify the following code to remove attributes that
+		// should not be searched.
+
+		$criteria=new CDbCriteria;
+
+		$criteria->compare('spiel_aufstellung_id',$this->spiel_aufstellung_id,true);
+		$criteria->compare('spiel_id',$this->spiel_id,true);
+		$criteria->compare('verein_id',$this->verein_id,true);
+		$criteria->compare('spielort_flag',$this->spielort_flag);
+		$criteria->compare('spieler_id',$this->spieler_id,true);
+		$criteria->compare('minute_einwechslung',$this->minute_einwechslung);
+		$criteria->compare('minute_auswechslung',$this->minute_auswechslung);
+		$criteria->compare('durchschnittsnote',$this->durchschnittsnote,true);
+		$criteria->compare('anzahl_benotungen',$this->anzahl_benotungen);
+
+		return new CActiveDataProvider($this, array(
+			'criteria'=>$criteria,
+		));
+	}
+	
+    public static function getAufstellungSpiel($spielId,$saison_id = 0) {
+        $aufstellung  = Yii::app()->db->createCommand()
+            ->select('s.nachname, sa.minute_auswechslung, sa.minute_einwechslung, sa.durchschnittsnote, sa.anzahl_benotungen, sa.verein_id,IF(s2v.position = "Torwart",0,1) AS pos_order')
+            ->from('spiel_aufstellung AS sa')
+            ->leftJoin('spieler s', 's.spieler_id = sa.spieler_id')
+            ->leftJoin('spieler2verein2saison s2v', 's2v.spieler_id = sa.spieler_id AND s2v.verein_id = sa.verein_id AND s2v.saison_id = '.$saison_id.'')
+            ->where('sa.spiel_id = :spiel_id AND sa.minute_einwechslung = 1', array(':spiel_id' => $spielId))
+            ->group('s.spieler_id')
+            ->order("pos_order ASC, s2v.position ASC")
+            ->queryAll();
+        return $aufstellung;
+    }
+	
+    public static function getBankSpiel($spielId,$saison_id = 0) {
+        $aufstellung  = Yii::app()->db->createCommand()
+            ->select('s.nachname, sa.minute_auswechslung, sa.minute_einwechslung, sa.durchschnittsnote, sa.anzahl_benotungen, sa.verein_id,IF(s2v.position = "Torwart",0,1) AS pos_order')
+            ->from('spiel_aufstellung AS sa')
+            ->leftJoin('spieler s', 's.spieler_id = sa.spieler_id')
+            ->leftJoin('spieler2verein2saison s2v', 's2v.spieler_id = sa.spieler_id AND s2v.verein_id = sa.verein_id AND s2v.saison_id = '.$saison_id.'')
+            ->where('sa.spiel_id = :spiel_id AND sa.minute_einwechslung > 1', array(':spiel_id' => $spielId))
+            ->group('s.spieler_id')
+            ->order("pos_order ASC, s2v.position ASC")
+            ->queryAll();
+        return $aufstellung;
+    }    
+    
+}

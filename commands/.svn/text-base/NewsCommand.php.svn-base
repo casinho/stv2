@@ -1,0 +1,31 @@
+<?php
+class NewsCommand extends CConsoleCommand {
+	public function actionIndex($args) {
+		$parser = new dpaNews();
+		$newsFolder = Yii::app()->basePath.DIRECTORY_SEPARATOR.'..'.DIRECTORY_SEPARATOR.'..'.DIRECTORY_SEPARATOR.'newsFolder';
+		$newsFiles = CFileHelper::findFiles($newsFolder, array('fileTypes' => array('xml', 'XML')));
+		foreach($newsFiles as $newsFile) {
+			$parser->loadFile($newsFile);
+			$titel = $parser->getTitel();
+			$inhalt = $parser->getInhalt();
+			if($titel !== false && $inhalt !== false) {
+				$news = new News;
+				$news->titel = $titel;
+				$news->quelle = 'dpa';
+				$news->bild = 'photo_1355829358561-1-HD.jpg';
+				$news->bildtitel = 'Testbild';
+				$news->nachricht = $inhalt;
+				$news->news_id_alt = 0;
+				$news->erstelltdatum = '2013-01-04 13:41:00';
+				$news->save();
+			}
+		}
+	}
+	
+	public function actionTest($args) {
+		
+	}
+	
+	
+}
+?>

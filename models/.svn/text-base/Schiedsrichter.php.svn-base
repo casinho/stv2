@@ -1,0 +1,151 @@
+<?php
+
+/**
+ * This is the model class for table "schiedsrichter".
+ *
+ * The followings are the available columns in table 'schiedsrichter':
+ * @property string $schiedsrichter_id
+ * @property integer $schiedsrichter_id_alt
+ * @property string $vorname
+ * @property string $nachname
+ * @property string $titel
+ * @property string $stadt
+ * @property string $geburtstag
+ * @property integer $tm_schiedsrichter_id
+ */
+class Schiedsrichter extends CActiveRecord
+{
+	
+	public $gesamtpunkte;
+	/**
+	 * Returns the static model of the specified AR class.
+	 * @param string $className active record class name.
+	 * @return Schiedsrichter the static model class
+	 */
+	public static function model($className=__CLASS__)
+	{
+		return parent::model($className);
+	}
+
+	/**
+	 * @return string the associated database table name
+	 */
+	public function tableName()
+	{
+		return 'schiedsrichter';
+	}
+
+	/**
+	 * @return array validation rules for model attributes.
+	 */
+	public function rules()
+	{
+		// NOTE: you should only define rules for those attributes that
+		// will receive user inputs.
+		return array(
+			array('vorname, nachname, stadt, geburtstag, tm_schiedsrichter_id', 'required'),
+			array('schiedsrichter_id_alt, tm_schiedsrichter_id', 'numerical', 'integerOnly'=>true),
+			array('vorname, nachname, titel, stadt', 'length', 'max'=>255),
+			array('geburtstag', 'safe'),
+			// The following rule is used by search().
+			// Please remove those attributes that should not be searched.
+			array('schiedsrichter_id, schiedsrichter_id_alt, vorname, nachname, titel, stadt, geburtstag, tm_schiedsrichter_id', 'safe', 'on'=>'search'),
+		);
+	}
+
+	/**
+	 * @return array relational rules.
+	 */
+	public function relations()
+	{
+		// NOTE: you may need to adjust the relation name and the related
+		// class name for the relations automatically generated below.
+		return array(
+			'spiel' => array(
+				self::BELONGS_TO,
+				'Spiel',
+				array('schiedsrichter_id' => 'schiedsrichter_id'),
+			    'joinType' => 'INNER JOIN'
+			),
+		);
+	}
+
+	/**
+	 * @return array customized attribute labels (name=>label)
+	 */
+	public function attributeLabels()
+	{
+		return array(
+			'schiedsrichter_id' => 'Schiedsrichter',
+			'schiedsrichter_id_alt' => 'Schiedsrichter Id Alt',
+			'vorname' => 'Vorname',
+			'nachname' => 'Nachname',
+			'titel' => 'Titel',
+			'stadt' => 'Stadt',
+			'geburtstag' => 'Geburtstag',
+			'tm_schiedsrichter_id' => 'Tm Schiedsrichter',
+		);
+	}
+
+	/**
+	 * Retrieves a list of models based on the current search/filter conditions.
+	 * @return CActiveDataProvider the data provider that can return the models based on the search/filter conditions.
+	 */
+	public function search()
+	{
+		// Warning: Please modify the following code to remove attributes that
+		// should not be searched.
+
+		$criteria=new CDbCriteria;
+
+		$criteria->compare('schiedsrichter_id',$this->schiedsrichter_id,true);
+		$criteria->compare('schiedsrichter_id_alt',$this->schiedsrichter_id_alt);
+		$criteria->compare('vorname',$this->vorname,true);
+		$criteria->compare('nachname',$this->nachname,true);
+		$criteria->compare('titel',$this->titel,true);
+		$criteria->compare('stadt',$this->stadt,true);
+		$criteria->compare('geburtstag',$this->geburtstag,true);
+		$criteria->compare('tm_schiedsrichter_id',$this->tm_schiedsrichter_id);
+
+		return new CActiveDataProvider($this, array(
+			'criteria'=>$criteria,
+		));
+	}
+	
+	public function getSchiedsrichterBySaison($saisonId) {
+        $schiris = Yii::app()->db->createCommand()
+            ->select('
+                    r.vorname,r.titel,
+                    r.nachname,
+                    r.geburtstag,
+                    r.stadt,
+                   	r.schiedsrichter_id,
+                    r.bild,
+                    r.tm_schiedsrichter_id,
+                    count(*) AS spiele,
+                    YEAR(CURRENT_DATE) - YEAR(r.geburtstag) - CASE WHEN MONTH(CURRENT_DATE) > MONTH(r.geburtstag) THEN 0 WHEN MONTH(CURRENT_DATE) < MONTH(r.geburtstag) THEN 1 WHEN DAYOFMONTH(CURRENT_DATE) < DAYOFMONTH(r.geburtstag) THEN 1 ELSE 0 END AS lebensalter
+                    ')
+            ->from('schiedsrichter r')
+            ->join('spiel s', 's.schiedsrichter_id = r.schiedsrichter_id AND s.saison_id = :saisonId', array(':saisonId' => $saisonId))
+            ->group('r.schiedsrichter_id')
+            ->order('spiele DESC')
+            ->queryAll();
+        return $schiris;
+	}
+
+	public function getGepfiffeneSpieleBySchiedsrichterAndSaison($saisonId, $schiedsrichterId) {
+        $schiris = Yii::app()->db->createCommand()
+            ->select('*')
+            ->from('schiedsrichter r')
+            ->join('spiel s', 's.schiedsrichter_id = r.schiedsrichter_id AND s.saison_id = :saisonId AND s.schiedsrichter_id = :schiedsrichterId', array(':saisonId' => $saisonId, ':schiedsrichterId' => $schiedsrichterId))
+            ->group('s.spiel_id')
+            ->order('spieltag DESC,anstosszeit ASC, sort ASC')
+            ->queryAll();
+        return $schiris;
+	}
+	
+	public function getSchiedsrichterLinkId($schiedsrichter_id = 2) {
+        $verein = '/schiedsrichter/detail?schiedsrichter='.$schiedsrichter_id;
+        return $verein;
+    }
+}

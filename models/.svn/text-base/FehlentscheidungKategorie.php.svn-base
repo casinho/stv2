@@ -1,0 +1,87 @@
+<?php
+
+/**
+ * This is the model class for table "fehlentscheidung_kategorie".
+ *
+ * The followings are the available columns in table 'fehlentscheidung_kategorie':
+ * @property integer $kategorie_id
+ * @property string $kategorie
+ */
+class FehlentscheidungKategorie extends CActiveRecord
+{
+	/**
+	 * Returns the static model of the specified AR class.
+	 * @param string $className active record class name.
+	 * @return FehlenentscheidungKategorie the static model class
+	 */
+	public static function model($className=__CLASS__)
+	{
+		return parent::model($className);
+	}
+
+	/**
+	 * @return string the associated database table name
+	 */
+	public function tableName()
+	{
+		return 'fehlentscheidung_kategorie';
+	}
+
+	/**
+	 * @return array validation rules for model attributes.
+	 */
+	public function rules()
+	{
+		// NOTE: you should only define rules for those attributes that
+		// will receive user inputs.
+		return array(
+			array('kategorie', 'required'),
+			array('kategorie', 'length', 'max'=>150),
+			// The following rule is used by search().
+			// Please remove those attributes that should not be searched.
+			array('kategorie_id, kategorie', 'safe', 'on'=>'search'),
+		);
+	}
+
+	/**
+	 * @return array relational rules.
+	 */
+	public function relations()
+	{
+		// NOTE: you may need to adjust the relation name and the related
+		// class name for the relations automatically generated below.
+		return array(
+			'spiel_fehlentscheidung' => array(self::BELONGS_TO, 'SpielFehlentscheidung', 'kategorie_id'),
+		);
+	}
+
+	/**
+	 * @return array customized attribute labels (name=>label)
+	 */
+	public function attributeLabels()
+	{
+		return array(
+			'kategorie_id' => 'Kategorie',
+			'kategorie' => 'Kategorie',
+		);
+	}
+
+	/**
+	 * Retrieves a list of models based on the current search/filter conditions.
+	 * @return CActiveDataProvider the data provider that can return the models based on the search/filter conditions.
+	 */
+	public function search()
+	{
+		// Warning: Please modify the following code to remove attributes that
+		// should not be searched.
+
+		$criteria=new CDbCriteria;
+
+		$criteria->compare('kategorie_id',$this->kategorie_id);
+		$criteria->compare('kategorie',$this->kategorie,true);
+
+		return new CActiveDataProvider($this, array(
+			'criteria'=>$criteria,
+		));
+	}
+}

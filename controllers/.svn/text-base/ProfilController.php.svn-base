@@ -1,0 +1,398 @@
+<?php
+
+class ProfilController extends Controller {
+	public $useXUpload = false; // AJAX File-Uploader benutzen?
+	/**
+	 * Declares class-based actions.
+	 */
+	public function filters() {
+		return array(
+			'accessControl', // perform access control for CRUD operations
+		);
+	}
+
+	public function accessRules() {
+		return array(
+			array('allow',  // allow all users to perform 'index' and 'view' actions
+				'actions'=>array('captcha','logout', 'login', 'registrieren', 'passwort', 'validate'),
+				'users'=>array('*'),
+			),
+			array('allow',
+				'actions' => array('index', 'einstellungen', 'avatarauswahl', 'avatarupload', 'upload', 'ajaxcrop'),
+				'roles' => array('authentifiziert')
+			),
+			array('deny',  // deny all users
+				'users'=>array('*'),
+			),
+		);
+	}
+	
+	public $contentNavigation = array(
+		'navigation'=>array(
+			array('label' => 'Profil', 'url' => '/profil/index'),
+			array('label' => 'Einstellungen', 'url' => '/profil/einstellungen'),
+			array('label' => 'Avatar ändern', 'url' => '/profil/avatarauswahl'),
+			array('label' => 'Avatar hochladen', 'url' => '/profil/avatarupload'),
+		)
+	);
+
+	public function actions() {
+		return array(
+			// captcha action renders the CAPTCHA image displayed on the contact page
+			'captcha'=>array(
+				'class'=>'CCaptchaAction',
+				'backColor'=>0xFFFFFF,
+			),
+			'upload'=>array(
+				'class'=>'xupload.actions.XUploadAction',
+				'path' =>Yii::app()->getBasePath() . "/../images/avatare/uploads",
+				'publicPath' => Yii::app()->getBaseUrl() . "/images/avatare/uploads",
+            ),
+		);
+	}
+
+	public function actionIndex() {
+		$attributes['user_nick'] = (Yii::app()->request->getQuery('user') !== null) ? Yii::app()->request->getQuery('user') : Yii::app()->user->name;
+		$meinProfil = ($attributes['user_nick'] == Yii::App()->user->name) ? true : false;
+		
+		$this->breadcrumbs = array(
+			'Profil' => array('profil/'),
+			$attributes['user_nick']
+		);
+					
+		$user 		= User::model()->findByAttributes($attributes);
+		$verein		= Verein::model()->findByPk($user->verein_id);
+
+		if(isset($_POST['User'])) {
+			$user->tr_erinnerung_flag = $_POST['User']['tr_erinnerung_flag'];
+			$user->pn_erinnerung_flag = $_POST['User']['pn_erinnerung_flag'];
+			$user->save();
+		}	
+
+		// ist dieses Profil mein Profil?
+		$saison_id 	= Saison::model()->getAktuelleSaisonId(Yii::app()->params['wettbewerbId']);
+			
+		$tippspiel['punkte'] 		= TippGesamt::model()->getPunkte($user->user_id, $saison_id);
+		$tippspiel['rang'] 			= TippGesamt::model()->getRang($saison_id, $tippspiel['punkte']['punkte']);
+        	
+       	$tippspiel['punkte_wt'] 	= TippGesamt::model()->getPunkteWT($user->user_id, $saison_id);
+		$tippspiel['rang_wt'] 		= TippGesamt::model()->getRangWT($saison_id, $tippspiel['punkte_wt']['punkte_wt']);
+		$nummerAktuellerSpieltag 	= Spiel::model()->getNummerAktuellerSpieltag($saison_id);
+       	$alleSpiele             	= Spiel::model()->getSpieleBySaison($saison_id);
+		foreach($alleSpiele as $k => $v) {
+			if($v['tipps_aktualisiert_flag'] == 0) {
+				unset($alleSpiele[$k]);
+			} else {
+				$getTipp[$k] = Tipp::model()->getTipps($v['spiel_id'], $user->user_id);
+				if(isset($getTipp[$k])) {
+					$alleSpiele[$k]['punkte'] 		= $getTipp[$k]['punkte'];
+					$alleSpiele[$k]['punkte_wt'] 	= $getTipp[$k]['punkte_wt'];
+					$alleSpiele[$k]['tore_heim'] 	= $getTipp[$k]['tore_heim'];
+					$alleSpiele[$k]['tore_gast'] 	= $getTipp[$k]['tore_gast'];
+				} else {
+					$alleSpiele[$k]['punkte'] 		= '-';
+					$alleSpiele[$k]['punkte_wt'] 	= '-';
+					$alleSpiele[$k]['tore_heim'] 	= '-';
+					$alleSpiele[$k]['tore_gast'] 	= '-';
+					unset($alleSpiele[$k]);
+				}
+			}
+		}
+		
+		$this->render('index', array(
+				'user' 				=> $user,
+				'tippspiel' 		=> $tippspiel,
+				'meinProfil'		=> $meinProfil,
+				'alleSpiele'		=> $alleSpiele,
+				'verein'			=> $verein,
+				'nummerAktuellerSpieltag' => $nummerAktuellerSpieltag
+			)
+		);
+	}
+
+	/**
+	 * This is the action to handle external exceptions.
+	 */
+	public function actionError() {
+		if($error=Yii::app()->errorHandler->error) {
+			if(Yii::app()->request->isAjaxRequest) {
+				echo $error['message'];
+			} else {
+				$this->render('error', $error);
+			}
+		}
+	}
+
+	public function actionLogin() {
+		$this->breadcrumbs = array('Login');
+		
+	    $model=new LoginForm;
+
+		if(isset($_POST['ajax']) && $_POST['ajax']==='login-form') {
+			echo CActiveForm::validate($model);
+			Yii::app()->end();
+		}
+
+		if(isset($_POST['LoginForm'])) {
+			$model->attributes=$_POST['LoginForm'];
+			// validate user input and redirect to the previous page if valid
+			if($model->validate() && $model->login()) {
+				$this->redirect(Yii::app()->user->returnUrl);
+			}
+		}
+		// display the login form
+		$this->render('login',array('model'=>$model));
+	}
+
+	public function actionEinstellungen() {
+		$attributes['user_nick'] = Yii::app()->user->name;
+		$user = User::model()->findByAttributes($attributes);
+		
+		if(!Yii::app()->user->checkAccess('profil_own_user_update', array('user' => $user))) {
+			throw new CHttpException('403', 'Falsches Profil');
+		}
+		
+		$this->breadcrumbs = array(
+			'Profil' => array('profil/'),
+			'Profil bearbeiten'
+		);		
+
+	    if(isset($_POST['User'])) {
+	    	$user->attributes=$_POST['User'];
+	    	$user->neues_passwort1 = $_POST['User']['neues_passwort1'];
+	    	$user->neues_passwort2 = $_POST['User']['neues_passwort2'];
+
+	    	if($user->neues_passwort1 != '') {
+	    	    $user->altes_passwort = $_POST['User']['altes_passwort'];
+	    		$user->setScenario('changePassword');
+			}
+
+			if($user->validate()) {
+			  	if ($user->neues_passwort1 !== '') {
+       				Yii::app()->user->setFlash('passwort','Dein Passwort wurde erfolgreich aktualisert.');
+			  		$user->passwort = $user->hashPassword($user->neues_passwort1);
+      			}
+
+				if($user->save(false)) {
+					Yii::app()->user->setFlash('bearbeiten','Deine Profildaten wurden erfolgreich gespeichert.');
+					$this->refresh();
+				} 
+			}
+	    }
+	    
+	    $this->render('bearbeiten',array('user'=>$user));
+	}
+	
+	public function actionRegistrieren() {
+	    $model   = new RegisterForm;
+	    
+	    $newUser = new User;
+	    
+	    if(isset($_POST['RegisterForm'])) {
+	    	
+	    	$model->attributes=$_POST['RegisterForm'];
+			if($model->validate()) {
+				
+			    $newUser->user_nick     	= $model->user_nick;
+			    $newUser->passwort			= $newUser->hashPassword($model->passwort1);
+			    $newUser->vorname			= $model->vorname;
+			    $newUser->nachname			= $model->nachname;
+			    $newUser->str 				= $model->str;
+			    $newUser->ort 				= $model->ort;
+			    $newUser->plz 				= $model->plz;
+			    $newUser->user_mail 		= $model->email;
+			    $newUser->verein_id			= $model->verein;
+			    $newUser->bestaetigung  	= WTFunctions::createRandomString(2);
+			    $newUser->aktiv_flag  		= 0;
+			    $newUser->datum_registriert = date('Y-m-d H:i:s');
+			    $newUser->sterne 			= 1;
+			    $newUser->sterne_real		= 1;
+			    
+				if($newUser->save()) {
+					$message = new YiiMailMessage('Wahretabelle.de: Registrierung'); 
+					$message->view = 'registrierung'; 
+					$message->setBody(array('userModel'=>$newUser), 'text/html'); 
+					$message->addTo($newUser->user_mail); 
+					$message->from = Yii::app()->params['systemMail']; 
+					Yii::app()->mail->send($message);
+					
+					Yii::app()->user->setFlash('registrieren','Vielen Dank für Deine Registrierung. Bitte prüfe Deinen Posteingang und aktiviere Deinen Account in dem Du den Aktivierungslink besuchst.');
+					$this->refresh();
+				}
+				
+			}
+		}
+	    $this->render('registrieren', array('model'=>$model));
+	}
+	
+	public function actionValidate() {
+		$aktivierungscode = Yii::app()->request->getQuery('key');
+
+	    if(isset($aktivierungscode) && !empty($aktivierungscode)) {
+			$model = User::model()->find('bestaetigung=:bestaetigung', array(':bestaetigung'=>$aktivierungscode));
+			if(is_object($model)) {
+          		if($aktivierungscode == $model->bestaetigung) {
+          			$model->aktiv_flag 			= 1;
+          			$model->bestaetigung		= '';
+    				$model->datum_bearbeitet 	= date('Y-m-d H:i:s');
+    		        if($model->save()) {
+            			Yii::app()->user->setFlash('validieren','Hallo '.$model->user_nick.',<br /><br />Dein Account wurde aktiviert. Vielen Dank für Deine Registrierung');
+          			}
+            		//$this->refresh();
+          		}
+			}
+	    }
+	    
+	    $this->render('validate',array('model'=>$model));
+    }
+    
+    public function actionAvatarauswahl() {
+    	$templateParams = array();
+    	$delete = false;
+    	$attribute['user_id'] = Yii::app()->user->id;
+    	$user = User::model()->findByPK($attribute['user_id']);
+    	$templateParams['useravatare'] = Useravatare::model()->findAllByAttributes($attribute);
+    	
+    	if(isset($_POST['abschalten'])) {
+    		foreach($templateParams['useravatare'] as $avatar) {
+    			$avatar->aktiv = 0;
+    			$avatar->save();
+    			
+    			$user->avatar = '';
+    			$user->save();
+    		}
+    	} elseif(isset($_POST['Useravatare'])) {
+    		
+    		foreach($templateParams['useravatare'] as $row => $avatar) {
+    			$avatar->aktiv = 0;
+    			if($avatar->avatar_id == $_POST['Useravatare']['avatar_id']) {
+    				if(isset($_POST['delete'])) {
+    					if($avatar->bildname == $user->avatar) {
+    						$user->avatar = '';
+    						$user->save();
+    					}
+    					$delete = true;
+    					$avatar->delete();
+    				} else { 
+    					$avatar->aktiv = 1;
+    					$user->avatar = $avatar->bildname;
+    					$user->save();
+    				}
+    				
+    			}
+    			if(!isset($_POST['delete'])) {
+    				$avatar->save();
+    			}
+    		}
+    	} 
+    	
+    	if($delete) {
+    		$templateParams['useravatare'] = Useravatare::model()->findAllByAttributes($attribute);
+    	}
+    	
+    	$this->render('avatarauswahl', $templateParams);
+    }
+    
+    public function actionAvatarupload() {
+    	$templateParams = array();
+    	$templateParams['model'] = User::model()->findByPK(Yii::app()->user->id); 
+    	
+    	if($this->useXUpload) {
+			Yii::import("xupload.models.XUploadForm");
+			$templateParams['xupload'] = new XUploadForm;
+		} else {
+			$templateParams['xupload'] = null;
+		}
+		
+		if(isset($_POST['User'])) {
+			$image = CUploadedFile::getInstance($templateParams['model'], 'avatar');
+			if(is_object($image)) {
+				$imageName = md5(time().$image->getName()).'.'.$image->getExtensionName();
+				$image->saveAs('images/avatare/uploads/'.$imageName);
+				$avatar = new Useravatare();
+				$avatar->user_id = Yii::app()->user->id;
+				$avatar->bildname = $imageName;
+				$avatar->aktiv = 0;
+				if($avatar->save()) {
+					$templateParams['avatar'] = $avatar;
+					if(is_file('images/avatare/uploads/'.$imageName)) {
+						$templateParams['imageSize'] = getimagesize('images/avatare/uploads/'.$imageName); 
+					} else {
+						$templateParams['imageSize'][0] = 0;
+						$templateParams['imageSize'][1] = 0;
+					}
+				} else {
+					$templateParams['avatar'] = null;
+				}
+			}
+		}
+		 
+    	$this->render('avatarupload', $templateParams);
+    }
+
+	public function actionAjaxCrop() {
+		$model = Useravatare::model()->findByPk(Yii::app()->request->getParam('id'));
+		
+		Yii::import('ext.jcrop.EJCropper');
+		
+		$jcropper = new EJCropper();
+		$jcropper->thumbPath = 'images/avatare/';
+		
+		// get the image cropping coordinates (or implement your own method)
+ 		$coords = $jcropper->getCoordsFromPost('imageId');
+ 		
+		// some settings ...
+		$jcropper->targ_w = $coords['w'];
+		$jcropper->targ_h = $coords['h'];
+		$jcropper->jpeg_quality = 85;
+		$jcropper->png_compression = 8;
+		
+		// returns the path of the cropped image, source must be an absolute path.
+		$memlimit = ini_get('memory_limit');
+		ini_set('memory_limit', '512M');
+		$thumbnail = $jcropper->crop('images/avatare/uploads/'.$model->bildname, $coords);
+		if($coords['w'] > 150 || $coords['h'] > 150) {
+			Yii::import('ext.image.Image');
+			$image = new Image('images/avatare/'.$model->bildname);
+			$image->resize(100, 100);
+			$image->save();
+		}
+		ini_set('memory_limit', $memlimit);
+	}
+	
+	public function actionLogout() {
+		Yii::app()->user->logout();
+		$this->redirect(Yii::app()->homeUrl);
+	}
+
+	
+	public function actionPasswort() {
+	    $model   = new PasswortForm;
+	    
+	    $newUser = new User;
+	    
+	    if(isset($_POST['PasswortForm'])) {
+			$model->attributes=$_POST['PasswortForm'];
+			if($model->validate()) {
+			    $attributes['user_nick'] = $model->attributes['user_nick'];
+			    $user = User::model()->findByAttributes($attributes);
+			    $pw = WTFunctions::createRandomString(3);
+			    $user->passwort = $user->hashPassword($pw);
+			    
+				if($user->save()) {
+					$message = new YiiMailMessage('Wahretabelle.de: Passwort angefordert'); 
+					$message->view = 'passwort'; 
+					$message->setBody(array('userModel'=>$user, 'pw' => $pw), 'text/html'); 
+					$message->addTo($user->user_mail); 
+					$message->from = Yii::app()->params['systemMail']; 
+					Yii::app()->mail->send($message);
+					
+					Yii::app()->user->setFlash('passwort','Dein neues Passwort wurde per E-Mail verschickt. Bitte überprüfe Dein Postfach.');
+					$this->refresh();
+				}
+				
+			}
+		}
+	    $this->render('passwort', array('model'=>$model));
+	}
+}

@@ -1,0 +1,251 @@
+K 25
+svn:wc:ra_dav:version-url
+V 46
+/svn/wt/!svn/ver/717/trunk/wt/protected/models
+END
+Saison.php
+K 25
+svn:wc:ra_dav:version-url
+V 57
+/svn/wt/!svn/ver/703/trunk/wt/protected/models/Saison.php
+END
+LoginForm.php
+K 25
+svn:wc:ra_dav:version-url
+V 60
+/svn/wt/!svn/ver/643/trunk/wt/protected/models/LoginForm.php
+END
+Spieler.php
+K 25
+svn:wc:ra_dav:version-url
+V 57
+/svn/wt/!svn/ver/16/trunk/wt/protected/models/Spieler.php
+END
+Schiedsrichter.php
+K 25
+svn:wc:ra_dav:version-url
+V 65
+/svn/wt/!svn/ver/702/trunk/wt/protected/models/Schiedsrichter.php
+END
+Quellen.php
+K 25
+svn:wc:ra_dav:version-url
+V 57
+/svn/wt/!svn/ver/16/trunk/wt/protected/models/Quellen.php
+END
+Note.php
+K 25
+svn:wc:ra_dav:version-url
+V 54
+/svn/wt/!svn/ver/16/trunk/wt/protected/models/Note.php
+END
+Wettbewerb.php
+K 25
+svn:wc:ra_dav:version-url
+V 60
+/svn/wt/!svn/ver/20/trunk/wt/protected/models/Wettbewerb.php
+END
+Spiel.php
+K 25
+svn:wc:ra_dav:version-url
+V 56
+/svn/wt/!svn/ver/702/trunk/wt/protected/models/Spiel.php
+END
+Tipp.php
+K 25
+svn:wc:ra_dav:version-url
+V 55
+/svn/wt/!svn/ver/422/trunk/wt/protected/models/Tipp.php
+END
+ForumNeueBeitraege.php
+K 25
+svn:wc:ra_dav:version-url
+V 69
+/svn/wt/!svn/ver/717/trunk/wt/protected/models/ForumNeueBeitraege.php
+END
+TippGesamt.php
+K 25
+svn:wc:ra_dav:version-url
+V 61
+/svn/wt/!svn/ver/422/trunk/wt/protected/models/TippGesamt.php
+END
+SpielBewertet.php
+K 25
+svn:wc:ra_dav:version-url
+V 63
+/svn/wt/!svn/ver/16/trunk/wt/protected/models/SpielBewertet.php
+END
+User.php
+K 25
+svn:wc:ra_dav:version-url
+V 55
+/svn/wt/!svn/ver/701/trunk/wt/protected/models/User.php
+END
+Useravatare.php
+K 25
+svn:wc:ra_dav:version-url
+V 62
+/svn/wt/!svn/ver/715/trunk/wt/protected/models/Useravatare.php
+END
+SpielFehlentscheidung2quellen.php
+K 25
+svn:wc:ra_dav:version-url
+V 80
+/svn/wt/!svn/ver/310/trunk/wt/protected/models/SpielFehlentscheidung2quellen.php
+END
+Schirinoten.php
+K 25
+svn:wc:ra_dav:version-url
+V 62
+/svn/wt/!svn/ver/244/trunk/wt/protected/models/Schirinoten.php
+END
+SpielAufstellung.php
+K 25
+svn:wc:ra_dav:version-url
+V 67
+/svn/wt/!svn/ver/381/trunk/wt/protected/models/SpielAufstellung.php
+END
+ForumBeitrag.php
+K 25
+svn:wc:ra_dav:version-url
+V 63
+/svn/wt/!svn/ver/717/trunk/wt/protected/models/ForumBeitrag.php
+END
+SpielScorer.php
+K 25
+svn:wc:ra_dav:version-url
+V 62
+/svn/wt/!svn/ver/379/trunk/wt/protected/models/SpielScorer.php
+END
+Alarm.php
+K 25
+svn:wc:ra_dav:version-url
+V 56
+/svn/wt/!svn/ver/695/trunk/wt/protected/models/Alarm.php
+END
+PasswortForm.php
+K 25
+svn:wc:ra_dav:version-url
+V 63
+/svn/wt/!svn/ver/341/trunk/wt/protected/models/PasswortForm.php
+END
+PnEingang.php
+K 25
+svn:wc:ra_dav:version-url
+V 60
+/svn/wt/!svn/ver/706/trunk/wt/protected/models/PnEingang.php
+END
+WahretabelleHistorie.php
+K 25
+svn:wc:ra_dav:version-url
+V 70
+/svn/wt/!svn/ver/16/trunk/wt/protected/models/WahretabelleHistorie.php
+END
+Spielernoten.php
+K 25
+svn:wc:ra_dav:version-url
+V 62
+/svn/wt/!svn/ver/19/trunk/wt/protected/models/Spielernoten.php
+END
+ForumThema.php
+K 25
+svn:wc:ra_dav:version-url
+V 61
+/svn/wt/!svn/ver/717/trunk/wt/protected/models/ForumThema.php
+END
+RegisterForm.php
+K 25
+svn:wc:ra_dav:version-url
+V 63
+/svn/wt/!svn/ver/661/trunk/wt/protected/models/RegisterForm.php
+END
+FehlentscheidungKategorie.php
+K 25
+svn:wc:ra_dav:version-url
+V 76
+/svn/wt/!svn/ver/368/trunk/wt/protected/models/FehlentscheidungKategorie.php
+END
+SpielStatistik.php
+K 25
+svn:wc:ra_dav:version-url
+V 65
+/svn/wt/!svn/ver/509/trunk/wt/protected/models/SpielStatistik.php
+END
+SpielFehlentscheidung.php
+K 25
+svn:wc:ra_dav:version-url
+V 72
+/svn/wt/!svn/ver/644/trunk/wt/protected/models/SpielFehlentscheidung.php
+END
+News.php
+K 25
+svn:wc:ra_dav:version-url
+V 55
+/svn/wt/!svn/ver/678/trunk/wt/protected/models/News.php
+END
+Beitrag.php
+K 25
+svn:wc:ra_dav:version-url
+V 57
+/svn/wt/!svn/ver/16/trunk/wt/protected/models/Beitrag.php
+END
+Land.php
+K 25
+svn:wc:ra_dav:version-url
+V 54
+/svn/wt/!svn/ver/16/trunk/wt/protected/models/Land.php
+END
+SpielKarten.php
+K 25
+svn:wc:ra_dav:version-url
+V 61
+/svn/wt/!svn/ver/16/trunk/wt/protected/models/SpielKarten.php
+END
+Spiel2spieler.php
+K 25
+svn:wc:ra_dav:version-url
+V 63
+/svn/wt/!svn/ver/16/trunk/wt/protected/models/Spiel2spieler.php
+END
+PnAusgang.php
+K 25
+svn:wc:ra_dav:version-url
+V 60
+/svn/wt/!svn/ver/706/trunk/wt/protected/models/PnAusgang.php
+END
+Kt2voting.php
+K 25
+svn:wc:ra_dav:version-url
+V 60
+/svn/wt/!svn/ver/349/trunk/wt/protected/models/Kt2voting.php
+END
+User2voting.php
+K 25
+svn:wc:ra_dav:version-url
+V 62
+/svn/wt/!svn/ver/507/trunk/wt/protected/models/User2voting.php
+END
+Verein2saison.php
+K 25
+svn:wc:ra_dav:version-url
+V 63
+/svn/wt/!svn/ver/16/trunk/wt/protected/models/Verein2saison.php
+END
+Forum.php
+K 25
+svn:wc:ra_dav:version-url
+V 56
+/svn/wt/!svn/ver/711/trunk/wt/protected/models/Forum.php
+END
+NewsZuordnung.php
+K 25
+svn:wc:ra_dav:version-url
+V 63
+/svn/wt/!svn/ver/16/trunk/wt/protected/models/NewsZuordnung.php
+END
+Verein.php
+K 25
+svn:wc:ra_dav:version-url
+V 57
+/svn/wt/!svn/ver/703/trunk/wt/protected/models/Verein.php
+END

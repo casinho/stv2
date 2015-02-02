@@ -1,0 +1,80 @@
+<?php
+class IndexController extends Controller {
+    public function actionIndex() {
+        $saisonId 					= Saison::model()->getAktuelleSaisonId(Yii::app()->params['wettbewerbId']);
+        $spieltagsAnzeige 			= WTFunctions::getDatenFuerSpieltagsAnzeigeBySaisonId($saisonId);
+        $saison 					= Saison::model()->findByPk($saisonId);
+        $tabelleWahr 				= $saison->getWahreTabelleEinfachBySpieltag($spieltagsAnzeige['gewaehlterSpieltag']);
+        $tabelleOffiziell 			= $saison->getOffizielleTabelleEinfachBySpieltag($spieltagsAnzeige['gewaehlterSpieltag']);
+        $aktuelleSpiele 			= Spiel::model()->getSpieleBySaisonAndSpieltag($saisonId, $spieltagsAnzeige['gewaehlterSpieltag']);
+        $naechsterSpieltag          = Spiel::model()->getNummerFolgenderSpieltag($saisonId);
+        $naechsteSpiele             = Spiel::model()->getSpieleBySaisonAndSpieltag($saisonId, $naechsterSpieltag);
+        $news                       = News::model()->kurzmeldung(false)->getStartseitenNews();
+        $kurzmeldungen				= News::model()->kurzmeldung(true)->getStartseitenNews(10);
+        $strittigeSzenen            = $saison->getStrittigeSzenenBySpieltag($spieltagsAnzeige['gewaehlterSpieltag']);
+        $vereine                    = Verein::model()->getVereineBySaison($saisonId);
+        $schiedsrichter             = Schiedsrichter::model()->getSchiedsrichterBySaison($saisonId);
+        
+        //Tabellen abgleichen, Differenzen zur jeweils anderen Tabelle eintragen
+        Saison::model()->kreuzverwurstung($tabelleWahr, $tabelleOffiziell);
+        
+        if(isset($_POST['Schirinoten'])) {
+            $model = new Schirinoten;
+            foreach($_POST['Schirinoten'] as $n=>$note) {
+                if(isset($_POST['Schirinoten'][$n])) {
+                    if($note['note'] > 0) {
+                        if($note['schirinoten_id'] > 0) {
+                            $item = Schirinoten::model()->findByPK($note['schirinoten_id']);
+                        } else {
+                            $item = new Schirinoten;
+                            $item->user_id = Yii::app()->user->getId();
+                        }
+                        $item->attributes = $_POST['Schirinoten'][$n];
+                        $item->save();
+                    } elseif(empty($note['note']) && $note['schirinoten_id'] > 0) {
+                        $item = Schirinoten::model()->findByPK($note['schirinoten_id']);
+                        $item->delete();
+                    }
+                }
+            }
+        }
+        
+        $userHatBenotet = (!Yii::app()->user->isGuest && Schirinoten::countNoten($spieltagsAnzeige['gewaehlterSpieltag'], $saisonId));
+        
+		$userHatGetippt = (!Yii::app()->user->isGuest && (Tipp::countTipps($naechsterSpieltag, $saisonId) == 9));
+        
+		$userHatPn = PnEingang::model()->getPNStatusByUserId(Yii::app()->user->getId());
+		
+        $viewparams = array(
+                'saisonId' => $saisonId,
+                'spieltagsAnzeige' => $spieltagsAnzeige,
+                'saison' => $saison,
+                'tabelleWahr' => $tabelleWahr,
+                'tabelleOffiziell' => $tabelleOffiziell,
+                'aktuelleSpiele' => $aktuelleSpiele,
+                'naechsterSpieltag' => $naechsterSpieltag,
+                'naechsteSpiele' => $naechsteSpiele,
+                'news' => $news,
+                'strittigeSzenen' => $strittigeSzenen,
+                'vereine' => $vereine,
+                'schiedsrichter' => $schiedsrichter,
+                'userHatGetippt' => $userHatGetippt,
+                'userHatBenotet' => $userHatBenotet,
+                'userHatPn' => $userHatPn,
+                'kurzmeldungen' => $kurzmeldungen,
+        );
+        $this->render('index', $viewparams);
+    }
+    
+    
+	public function actionError() {
+		if($error=Yii::app()->errorHandler->error) {
+			if(Yii::app()->request->isAjaxRequest) {
+				echo $error['message'];
+			} else {
+				$this->render('error', $error);
+			}
+		}
+	}    
+    
+}

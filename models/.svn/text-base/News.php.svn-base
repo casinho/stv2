@@ -1,0 +1,181 @@
+<?php
+
+/**
+ * This is the model class for table "news".
+ *
+ * The followings are the available columns in table 'news':
+ * @property string $news_id
+ * @property integer $news_id_alt
+ * @property string $titel
+ * @property string $url
+ * @property string $quelle
+ * @property string $teaser
+ * @property string $nachricht
+ * @property string $bild
+ * @property string $bildunterschrift
+ * @property string $bildtitel
+ * @property string $bildprovider
+ * @property integer $topnews_flag
+ * @property string $erstelltdatum
+ * @property string $erstellt_user_id
+ * @property string $bearbeitetdatum
+ * @property string $bearbeitet_user_id
+ * @property integer $twitter_flag
+ *
+ * The followings are the available model relations:
+ * @property NewsZuordnung[] $newsZuordnungs
+ */
+class News extends CActiveRecord {
+	/**
+	 * Returns the static model of the specified AR class.
+	 * @param string $className active record class name.
+	 * @return News the static model class
+	 */
+	public static function model($className=__CLASS__) {
+		return parent::model($className);
+	}
+
+	/**
+	 * @return string the associated database table name
+	 */
+	public function tableName() {
+		return 'news';
+	}
+
+	public function kurzmeldung($kurzmeldungFlag) {
+		$this->getDbCriteria()->mergeWith(array(
+			'condition' => 'kurzmeldung=:kurzmeldung',
+			'params' => array(
+				':kurzmeldung' => ($kurzmeldungFlag) ? '1' : '0',
+			)
+		));
+		return $this;
+	}
+	
+	/**
+	 * @return array validation rules for model attributes.
+	 */
+	public function rules() {
+		// NOTE: you should only define rules for those attributes that
+		// will receive user inputs.
+		return array(
+			array('news_id_alt, titel, kurzmeldung', 'required'),
+			array('news_id_alt, topnews_flag, twitter_flag, kurzmeldung, online_flag', 'numerical', 'integerOnly'=>true),
+			array('titel, quelle, teaser, bildunterschrift, bildtitel', 'length', 'max'=>255),
+			array('url', 'length', 'max'=>160),
+			array('bildprovider', 'length', 'max'=>120),
+			array('erstellt_user_id, bearbeitet_user_id', 'length', 'max'=>10),
+			array('nachricht, erstelltdatum, bearbeitetdatum', 'safe'),
+			// The following rule is used by search().
+			// Please remove those attributes that should not be searched.
+			array('news_id, news_id_alt, titel, url, quelle, teaser, nachricht, bild, bildunterschrift, bildtitel, bildprovider, topnews_flag, erstelltdatum, erstellt_user_id, bearbeitetdatum, bearbeitet_user_id, twitter_flag, kurzmeldung', 'safe', 'on'=>'search'),
+		);
+	}
+
+	/**
+	 * @return array relational rules.
+	 */
+	public function relations() {
+		// NOTE: you may need to adjust the relation name and the related
+		// class name for the relations automatically generated below.
+		return array(
+			'newsZuordnungs' => array(self::HAS_MANY, 'NewsZuordnung', 'news_id'),
+		);
+	}
+
+	/**
+	 * @return array customized attribute labels (name=>label)
+	 */
+	public function attributeLabels() {
+		return array(
+			'news_id' => 'News',
+			'news_id_alt' => 'News Id Alt',
+			'titel' => 'Titel',
+			'url' => 'Url',
+			'quelle' => 'Quelle',
+			'teaser' => 'Teaser',
+			'nachricht' => 'Nachricht',
+			'bild' => 'Bild',
+			'bildunterschrift' => 'Bildunterschrift',
+			'bildtitel' => 'Bildtitel',
+			'bildprovider' => 'Bildprovider',
+			'topnews_flag' => 'Topnews Flag',
+			'erstelltdatum' => 'Erstelltdatum',
+			'erstellt_user_id' => 'Erstellt User',
+			'bearbeitetdatum' => 'Bearbeitetdatum',
+			'bearbeitet_user_id' => 'Bearbeitet User',
+			'twitter_flag' => 'Twitter Flag',
+			'kurzmeldung' => 'Kurzmeldung,'
+		);
+	}
+
+	public function getStartseitenNews($var_limit = 7) {
+        $news = $this->findAll(array(
+                'select' => 'news_id, titel, url, nachricht, quelle, teaser, bild, bildtitel, bildunterschrift, bildprovider, erstelltdatum',
+                'condition' => 'online_flag = 1',
+                'order' => 'erstelltdatum DESC',
+                'limit' => $var_limit,
+        ));
+        return $news;
+	}
+	
+	public function getEinzelneNews($newsId) {
+		return $this->findByPK($newsId);
+	}
+	
+	/**
+	 * Retrieves a list of models based on the current search/filter conditions.
+	 * @return CActiveDataProvider the data provider that can return the models based on the search/filter conditions.
+	 */
+	public function search() {
+		// Warning: Please modify the following code to remove attributes that
+		// should not be searched.
+
+		$criteria=new CDbCriteria;
+
+		$criteria->compare('news_id',$this->news_id,true);
+		$criteria->compare('news_id_alt',$this->news_id_alt);
+		$criteria->compare('titel',$this->titel,true);
+		$criteria->compare('url',$this->url,true);
+		$criteria->compare('quelle',$this->quelle,true);
+		$criteria->compare('teaser',$this->teaser,true);
+		$criteria->compare('nachricht',$this->nachricht,true);
+		$criteria->compare('bild',$this->bild,true);
+		$criteria->compare('bildunterschrift',$this->bildunterschrift,true);
+		$criteria->compare('bildtitel',$this->bildtitel,true);
+		$criteria->compare('bildprovider',$this->bildprovider,true);
+		$criteria->compare('topnews_flag',$this->topnews_flag);
+		$criteria->compare('erstelltdatum',$this->erstelltdatum,true);
+		$criteria->compare('erstellt_user_id',$this->erstellt_user_id,true);
+		$criteria->compare('bearbeitetdatum',$this->bearbeitetdatum,true);
+		$criteria->compare('bearbeitet_user_id',$this->bearbeitet_user_id,true);
+		$criteria->compare('twitter_flag',$this->twitter_flag);
+
+		return new CActiveDataProvider($this, array(
+			'criteria'=>$criteria,
+		));
+	}
+	
+	public function zeigeDatumZeit() {
+		$dateFormatter = Yii::app()->getDateFormatter();
+		return $dateFormatter->formatDateTime($this->erstelltdatum, 'medium', 'short');
+	}
+	
+	public function getNewsLink() {
+		return CHtml::normalizeUrl(array('news/view', 'seo' => WTFunctions::normalisiereString($this->titel), 'id' => $this->news_id));
+	}
+	
+	public function getFormatiertenNewsText() {
+		$news['ersterAbsatz'] 		= $this->teaser;
+		$news['folgendeAbsaetze'] 	= $this->nachricht;
+		return $news;
+	}
+	
+	public function getNewsBild($groesse) {
+		if(stripos($this->bild, '/') !== false) {
+			return $this->bild;
+		} else {
+			return 'http://www.wahretabelle.de/_grafik/__sid_news/'.str_replace('HD', $groesse, $this->bild);
+		}
+	}
+}

@@ -1,0 +1,156 @@
+<?php
+
+/**
+ * This is the model class for table "forum_neue_beitraege".
+ *
+ * The followings are the available columns in table 'forum_neue_beitraege':
+ * @property string $auto_id
+ * @property string $forum_id
+ * @property string $thema_id
+ * @property string $beitrag_id
+ * @property string $datumzeit
+ * @property string $user_id
+ * @property integer $neues_thema_flag
+ */
+class ForumNeueBeitraege extends CActiveRecord
+{
+	/**
+	 * Returns the static model of the specified AR class.
+	 * @param string $className active record class name.
+	 * @return ForumNeueBeitraege the static model class
+	 */
+	
+	public $forum;
+	public $thema;
+	public $beitrag;
+	
+	
+	public static function model($className=__CLASS__)
+	{
+		return parent::model($className);
+	}
+
+	/**
+	 * @return string the associated database table name
+	 */
+	public function tableName()
+	{
+		return 'forum_neue_beitraege';
+	}
+
+	/**
+	 * @return array validation rules for model attributes.
+	 */
+	public function rules()
+	{
+		// NOTE: you should only define rules for those attributes that
+		// will receive user inputs.
+		return array(
+			array('forum_id, thema_id, beitrag_id, datumzeit, user_id, neues_thema_flag', 'required'),
+			array('neues_thema_flag', 'numerical', 'integerOnly'=>true),
+			array('auto_id, forum_id, thema_id, beitrag_id, user_id', 'length', 'max'=>10),
+			// The following rule is used by search().
+			// Please remove those attributes that should not be searched.
+			array('auto_id, forum_id, thema_id, beitrag_id, datumzeit, user_id, neues_thema_flag', 'safe', 'on'=>'search'),
+		);
+	}
+
+	/**
+	 * @return array relational rules.
+	 */
+	public function relations()
+	{
+		// NOTE: you may need to adjust the relation name and the related
+		// class name for the relations automatically generated below.
+		return array(
+		);
+	}
+
+	/**
+	 * @return array customized attribute labels (name=>label)
+	 */
+	public function attributeLabels()
+	{
+		return array(
+			'auto_id' => 'Auto',
+			'forum_id' => 'Forum',
+			'thema_id' => 'Thema',
+			'beitrag_id' => 'Beitrag',
+			'datumzeit' => 'Datumzeit',
+			'user_id' => 'User',
+			'neues_thema_flag' => 'Neues Thema Flag',
+		);
+	}
+
+	/**
+	 * Retrieves a list of models based on the current search/filter conditions.
+	 * @return CActiveDataProvider the data provider that can return the models based on the search/filter conditions.
+	 */
+	public function search()
+	{
+		// Warning: Please modify the following code to remove attributes that
+		// should not be searched.
+
+		$criteria=new CDbCriteria;
+
+		$criteria->compare('auto_id',$this->auto_id,true);
+		$criteria->compare('forum_id',$this->forum_id,true);
+		$criteria->compare('thema_id',$this->thema_id,true);
+		$criteria->compare('beitrag_id',$this->beitrag_id,true);
+		$criteria->compare('datumzeit',$this->datumzeit,true);
+		$criteria->compare('user_id',$this->user_id,true);
+		$criteria->compare('neues_thema_flag',$this->neues_thema_flag);
+
+		return new CActiveDataProvider($this, array(
+			'criteria'=>$criteria,
+		));
+	}
+	
+	public function aktualisiereAktuelleBeitraege($boardId,$beitragId) {
+		$forum 	= Forum::Model()->findByPk($boardId); 
+		$thema	= ForumThema::model(null,$forum->forum_id)->findByPk($forum->letzte_thema_id);
+		$letzte	= new ForumNeueBeitraege;
+		
+		$letzte->forum_id 		= $forum->forum_id;
+		$letzte->thema_id 		= $forum->letzte_thema_id;
+		$letzte->beitrag_id		= $beitragId;
+		$letzte->user_id		= $thema->letzte_user_id;
+		$letzte->datumzeit		= $thema->letzte_beitrag_zeit;
+		if($beitragId == $thema->letzte_beitrag_id) {
+			$letzte->neues_thema_flag	= 1;
+		} else {
+			$letzte->neues_thema_flag	= 0;
+		}
+		$letzte->save(false);
+		return true;
+	}	
+	
+	public static function holeLetzteBeitraege() {
+
+		$attributes = array();
+		$conditions = array('order' => 'datumzeit DESC', 'limit' => 25);
+		
+		$beitraege = ForumNeueBeitraege::model()->findAllByAttributes($attributes,$conditions);
+		
+		foreach($beitraege as $k => $v) {
+			$attributes['forum_id'] = $v->forum_id;
+			$forum = Forum::model()->findByAttributes($attributes);
+			$forum->scenario = 'view_foren';
+			if(!Yii::app()->user->checkAccess($forum->role)) { 
+				unset($beitraege[$k]);
+			} else {
+				$beitraege[$k]['forum'] 	= $forum;
+				$beitraege[$k]['thema'] 	= ForumThema::model(null,$v->forum_id)->findByPk($v->thema_id);
+				$beitraege[$k]['beitrag'] 	= ForumBeitrag::model(null,$v->forum_id)->findByPk($v->beitrag_id);
+				#echo $beitraege[$k]['beitrag']->nachricht."<br />";
+				#echo $beitraege[$k]['beitrag']->user_nick."<br /><br />";
+			}
+		}
+		
+		
+		
+		return $beitraege;
+	}
+	
+	
+}

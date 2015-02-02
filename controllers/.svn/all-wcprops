@@ -1,0 +1,113 @@
+K 25
+svn:wc:ra_dav:version-url
+V 51
+/svn/wt/!svn/ver/718/trunk/wt/protected/controllers
+END
+ForumController.php
+K 25
+svn:wc:ra_dav:version-url
+V 71
+/svn/wt/!svn/ver/711/trunk/wt/protected/controllers/ForumController.php
+END
+VereinController.php
+K 25
+svn:wc:ra_dav:version-url
+V 72
+/svn/wt/!svn/ver/702/trunk/wt/protected/controllers/VereinController.php
+END
+AdmincenterController.php
+K 25
+svn:wc:ra_dav:version-url
+V 77
+/svn/wt/!svn/ver/492/trunk/wt/protected/controllers/AdmincenterController.php
+END
+ProfilController.php
+K 25
+svn:wc:ra_dav:version-url
+V 72
+/svn/wt/!svn/ver/718/trunk/wt/protected/controllers/ProfilController.php
+END
+LigaverwaltungController.php
+K 25
+svn:wc:ra_dav:version-url
+V 80
+/svn/wt/!svn/ver/635/trunk/wt/protected/controllers/LigaverwaltungController.php
+END
+SaisonController.php
+K 25
+svn:wc:ra_dav:version-url
+V 72
+/svn/wt/!svn/ver/704/trunk/wt/protected/controllers/SaisonController.php
+END
+ServiceController.php
+K 25
+svn:wc:ra_dav:version-url
+V 73
+/svn/wt/!svn/ver/570/trunk/wt/protected/controllers/ServiceController.php
+END
+SchiedsrichterController.php
+K 25
+svn:wc:ra_dav:version-url
+V 80
+/svn/wt/!svn/ver/702/trunk/wt/protected/controllers/SchiedsrichterController.php
+END
+PostfachController.php
+K 25
+svn:wc:ra_dav:version-url
+V 74
+/svn/wt/!svn/ver/718/trunk/wt/protected/controllers/PostfachController.php
+END
+IndexController.php
+K 25
+svn:wc:ra_dav:version-url
+V 71
+/svn/wt/!svn/ver/449/trunk/wt/protected/controllers/IndexController.php
+END
+TipprundeController.php
+K 25
+svn:wc:ra_dav:version-url
+V 75
+/svn/wt/!svn/ver/685/trunk/wt/protected/controllers/TipprundeController.php
+END
+WettbewerbController.php
+K 25
+svn:wc:ra_dav:version-url
+V 76
+/svn/wt/!svn/ver/704/trunk/wt/protected/controllers/WettbewerbController.php
+END
+SpielController.php
+K 25
+svn:wc:ra_dav:version-url
+V 71
+/svn/wt/!svn/ver/703/trunk/wt/protected/controllers/SpielController.php
+END
+NewsController.php
+K 25
+svn:wc:ra_dav:version-url
+V 70
+/svn/wt/!svn/ver/662/trunk/wt/protected/controllers/NewsController.php
+END
+UserController.php
+K 25
+svn:wc:ra_dav:version-url
+V 70
+/svn/wt/!svn/ver/633/trunk/wt/protected/controllers/UserController.php
+END
+StatistikController.php
+K 25
+svn:wc:ra_dav:version-url
+V 75
+/svn/wt/!svn/ver/501/trunk/wt/protected/controllers/StatistikController.php
+END
+KompetenzteamcenterController.php
+K 25
+svn:wc:ra_dav:version-url
+V 85
+/svn/wt/!svn/ver/613/trunk/wt/protected/controllers/KompetenzteamcenterController.php
+END
+CommunityController.php
+K 25
+svn:wc:ra_dav:version-url
+V 75
+/svn/wt/!svn/ver/261/trunk/wt/protected/controllers/CommunityController.php
+END
